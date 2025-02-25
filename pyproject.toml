@@ -1,0 +1,18 @@
+[project]
+name = "ssc-viewer"
+version = "0.1.0"
+description = "Display info of reservation"
+authors = [
+    {name = "giacomo",email = "ariannagiacomo@gmail.com"}
+]
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "pyside6 (>=6.8.2.1,<7.0.0.0)",
+    "paho-mqtt (>=2.1.0,<3.0.0)"
+]
+
+
+[build-system]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
+build-backend = "poetry.core.masonry.api"
