@@ -1,14 +1,14 @@
 [project]
 name = "ssc-viewer"
 version = "0.1.0"
-description = "Display info of reservation"
+description = "Resevation Info"
 authors = [
-    {name = "giacomo",email = "ariannagiacomo@gmail.com"}
+    {name = "jackarian",email = "ariannagiacomo@gmail.com"}
 ]
 readme = "README.md"
 requires-python = "=3.11.2"
 dependencies = [
-    "pyside6 (>=6.8.2.1,<7.0.0.0)",
+    "pyside6 (==6.8.0.2)",
     "paho-mqtt (>=2.1.0,<3.0.0)"
 ]
 
