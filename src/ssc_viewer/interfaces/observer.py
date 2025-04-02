@@ -14,5 +14,5 @@ class ConnectionObserver:
 
 class Displayer:
 
-    def displayMessage(self,title,message,type):
+    def displayMessage(self,title,message,message_type):
         pass

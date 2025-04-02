@@ -6,7 +6,7 @@ from ssc_viewer.interfaces.observer import ConnectionObserver
 
 logging.basicConfig(level=logging.DEBUG)
 
-class ClientMqttController():
+class ClientMqttController:
     def __init__(self,broker,port=1883, topic=None,username=None,password=None, observer: ConnectionObserver=None,
                  client_id =None):
          self.logger = logging.getLogger(__name__)
