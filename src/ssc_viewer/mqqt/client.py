@@ -60,7 +60,7 @@ class ClientMqttController:
 if __name__ == '__main__':
      broker = 'mqtt.back-iot.it'
      port = 1883
-     topic = "padova/entry"
+     topic = "ssc/reservation"
      # Generate a Client ID with the subscribe prefix.
      client_id = f'subscribe-{random.randint(0, 100)}'
      username = 'jackarian'
