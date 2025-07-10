@@ -28,6 +28,8 @@ class MyWidget(QtWidgets.QWidget,ConnectionObserver):
         super().__init__()
         geometry = QGuiApplication.primaryScreen().geometry()
         self.labelWidth= int(geometry.width() / 2)
+        self._configureFromFile()
+        self.tag=self.config['station']['tag']
         self.thread = None
         self.secondi = 0
         self.timer = QTimer()
@@ -38,32 +40,47 @@ class MyWidget(QtWidgets.QWidget,ConnectionObserver):
         self.titleLabel = QtWidgets.QLabel('Title')
         self.titleLabel.setPixmap(QPixmap(os.path.join(basedir,'./img/padovamusic.png')))
         self.titleLabel.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
+        self.titleLabel.setFixedHeight(103)
+        self.roomName = QtWidgets.QLabel(self.config['station']['name'])
+        self.roomName.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
+        self.roomName.setFixedHeight(103)
+        self.roomName.setStyleSheet("QLabel {background-color: #fff; font-size: 50px; font-weight: bold; color: #e31100}")
         """
         Labels to show reservation time info 
         """
         self.infoLabel = QtWidgets.QLabel('Info prenotazione:')
-        self.infoLabel.setStyleSheet("QLabel {background-color: #fff; border: 1px solid black; border-radius: 10px; font-size: 20px; font-weight: bold;}")
+        self.infoLabel.setStyleSheet("QLabel {background-color: #fff; border: 1px solid black; border-radius: 10px; font-size: 35px; font-weight: bold; color:#e31100;}")
         self.infoLabel.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
         self.infoLabel.setFixedWidth(self.labelWidth)
 
         self.infoStartPrenotazione = QtWidgets.QLabel('')
         self.infoStartPrenotazione.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
         self.infoStartPrenotazione.setFixedWidth(self.labelWidth)
-        self.infoStartPrenotazione.setStyleSheet("QLabel {background-color: #fff; border-top: 1px solid black; border-radius: 10px; font-size: 20px; font-weight: bold;}")
+        self.infoStartPrenotazione.setStyleSheet("QLabel {background-color: #fff; border-top: 1px solid black; border-radius: 10px; font-size: 20px; font-weight: bold;color:#e31100;}")
 
         self.infoEndReservation = QtWidgets.QLabel('')
         self.infoEndReservation.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
         self.infoEndReservation.setFixedWidth(self.labelWidth)
-        self.infoEndReservation.setStyleSheet("QLabel {background-color: #fff; border-bottom: 1px solid black; border-radius: 10px; font-size: 20px; font-weight: bold;}")
+        self.infoEndReservation.setStyleSheet("QLabel {background-color: #fff; border-bottom: 1px solid black; border-radius: 10px; font-size: 20px; font-weight: bold;color:#e31100;}")
         """
         Labels to show time info
         """
         self.timeLabel = QtWidgets.QLabel('')
         self.timeLabel.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
-        self.timeLabel.setStyleSheet("QLabel {background-color: #fff; border: 1px solid black; border-radius: 10px; font-size: 20px; font-weight: bold;}")
+        self.timeLabel.setStyleSheet("QLabel {background-color: #fff; border: 1px solid black; border-radius: 10px; font-size: 30px; font-weight: bold; color:#e31100;}")
         self.timeLabel.setFixedWidth(self.labelWidth)
         self.progressBar = QtWidgets.QProgressBar()
-        self.progressBar.setStyleSheet("QProgressBar { border: 2px solid grey; border-radius: 5px;  text-align: center;}")
+        self.progressBar.setStyleSheet(""" 
+        QProgressBar { 
+        border: 2px solid grey; 
+        border-radius: 5px;  
+        text-align: center;
+        } 
+        QProgressBar::chunk {
+        background-color: #e31100;
+        width: 20px;
+        }
+        """)
         self.progressBar.setFixedWidth(self.labelWidth)
         self.progressBar.setVisible(False)
         """
@@ -72,10 +89,11 @@ class MyWidget(QtWidgets.QWidget,ConnectionObserver):
         """
         """
         self.connected = False
-        self._configureFromFile()
+
 
         self.lMainVertical = QtWidgets.QVBoxLayout()
         self.lMainVertical.addWidget(self.titleLabel)
+        self.lMainVertical.addWidget(self.roomName)
 
         self.lHExternalRows = QtWidgets.QHBoxLayout()
         self.lBottomRow = QtWidgets.QHBoxLayout()
@@ -124,7 +142,7 @@ class MyWidget(QtWidgets.QWidget,ConnectionObserver):
     def update_counter(self):
         if self.secondi == 0:
             self.progressBar.setVisible(False)
-            self.timeLabel.setText('Nessuna Pronotazione')
+            self.timeLabel.setText('Nessuna Prenotazione')
             self.infoStartPrenotazione.setText('')
             self.infoEndReservation.setText('')
         else:
@@ -152,16 +170,14 @@ class MyWidget(QtWidgets.QWidget,ConnectionObserver):
 
     def onReceiveMessage(self, message:Frame):
         print(message)
-        self.progressBar.setVisible(False)
         try:
             payload = json.loads(message.body)
-            self.start = datetime.fromisoformat(str(payload['startTime']))
-            self.end   = datetime.fromisoformat(str(payload['endTime']))
-
-            ds = timedelta(hours=self.start.hour,minutes=self.start.minute,seconds=self.start.second)
-            de = timedelta(hours=self.end.hour, minutes=self.end.minute, seconds=self.end.second)
-            delta =  (self.end - self.start)
-            self.secondi = delta.total_seconds()
+            if payload['resourceTag'] ==self.tag:
+                self.progressBar.setVisible(False)
+                self.start = datetime.fromisoformat(str(payload['startTime']))
+                self.end   = datetime.fromisoformat(str(payload['endTime']))
+                delta =  (self.end - self.start)
+                self.secondi = delta.total_seconds()
 
         except json.decoder.JSONDecodeError:
             _logging.error(f"received message {message}: {message}")
