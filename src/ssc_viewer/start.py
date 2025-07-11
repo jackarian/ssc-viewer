@@ -20,17 +20,18 @@ from ssc_viewer.stomp_ws.frame import Frame
 import decimal
 from decimal import Decimal
 from datetime import datetime, time, timedelta
+import stomp
 
 basedir=os.path.dirname(__file__)
 decimal.getcontext().rounding = decimal.ROUND_HALF_EVEN
-class MyWidget(QtWidgets.QWidget,ConnectionObserver):
+class MyWidget(QtWidgets.QWidget,ConnectionObserver,stomp.ConnectionListener):
     def __init__(self,app=None,ws_uri=None, topic=None):
         super().__init__()
         geometry = QGuiApplication.primaryScreen().geometry()
         self.labelWidth= int(geometry.width() / 2)
         self._configureFromFile()
         self.tag=self.config['station']['tag']
-        self.thread = None
+        self.thread:Thread= None
         self.secondi = 0
         self.timer = QTimer()
         self.timer.setInterval(1000)
@@ -104,7 +105,7 @@ class MyWidget(QtWidgets.QWidget,ConnectionObserver):
         }        
         """)
         self.connectionButton.setFixedWidth(int(self.labelWidth / 2))
-        self.connectionButton.clicked.connect(self.connect)
+        self.connectionButton.clicked.connect(self.reconnect)
         self.connectionButton.setVisible(False)
         """
         """
@@ -141,11 +142,10 @@ class MyWidget(QtWidgets.QWidget,ConnectionObserver):
         """
         """
 
-
         self.setLayout(self.lMainVertical)
 
         self.resize(geometry.width(), geometry.height())
-
+        self.uri = ws_uri
         self.start = None
         self.end = None
         ##self.showFullScreen()
@@ -185,6 +185,10 @@ class MyWidget(QtWidgets.QWidget,ConnectionObserver):
     def stopTimer(self):
         self.timer.stop()
 
+    def clearError(self):
+        self.connectionButton.setVisible(False)
+        self.massageLabel.setText("")
+
     def onReceiveMessage(self, message:Frame):
         print(message)
         try:
@@ -198,6 +202,7 @@ class MyWidget(QtWidgets.QWidget,ConnectionObserver):
                 self.infoStartPrenotazione.setText("Inizio: "+self.start.isoformat())
                 self.infoEndReservation.setText("Fine: "+self.end.isoformat())
 
+
         except json.decoder.JSONDecodeError:
             _logging.error(f"received message {message}: {message}")
             self.massageLabel.setText(f"received message {message}: {message}")
@@ -206,33 +211,39 @@ class MyWidget(QtWidgets.QWidget,ConnectionObserver):
 
     def connectToBroker(self):
         if not self.client.connected:
-            self.thread = Thread(target=self.client.connect,
-                            kwargs=
-                            {'connectCallback': self.onConnected,'timeout': 10000})
+            self.thread = Thread(target=self.client.connect,kwargs= {'connectCallback': self.onConnected,'timeout': 10000})
             self.thread.daemon = True
             self.thread.start()
+
+    def reconnect(self):
+        if not self.client.connected:
+            self.client.stop()
+            self.client=None
+            self.thread.join()
+            self.thread = None
+            self.client=Client(self.uri, self)
+            self.connectToBroker()
+
 
     def onConnected(self, frame):
         self.connected = True
         self.client.subscribe(self.topic, callback=self.onReceiveMessage)
         self.connectionButton.setVisible(False)
+        self.massageLabel.setText("")
 
     def notifyOnClose(self, observable=None, message=None, exception=None):
         self.connectionButton.setVisible(True)
-
+        self.massageLabel.setText("")
     def notifyOnOpen(self, observable=None, message=None, exception=None):
-        pass
+        self.connectionButton.setVisible(False)
 
     def notifyOnMessage(self, observable=None, message=None, exception=None):
         pass
 
     def notifyOnError(self, observable=None, message=None, exception=None):
-        print(message)
-        print(exception)
         self.connected = False
+        self.massageLabel.setText("Errore conessione al server")
         self.connectionButton.setVisible(True)
-        self.massageLabel.setText(message)
-
 
 
 

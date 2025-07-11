@@ -36,7 +36,7 @@ class Client:
         self.observers.append(observer)
 
     def _connect(self, timeout=1000):
-        thread = Thread(target=self.ws.run_forever)
+        thread = Thread(target=self.ws.run_forever,kwargs={'reconnect':timeout})
         thread.daemon = True
         thread.start()
 
@@ -51,6 +51,10 @@ class Client:
         self.opened = True
         for observer in self.observers:
             observer.notifyOnOpen(ws)
+    def stop(self):
+        self.ws.close()
+        self.opened = False
+        self.connected = False
 
     def _on_close(self, ws, close_status_code, close_msg):
         self.connected = False
@@ -144,9 +148,10 @@ class Client:
         if headers is None:
             headers = {}
 
-        self._transmit("DISCONNECT", headers)
-        self.ws.on_close = None
-        self.ws.close()
+        if self.connected:
+            self._transmit("DISCONNECT", headers)
+            self.ws.on_close = None
+            self.ws.close()
         self._clean_up()
 
         if disconnectCallback is not None:
