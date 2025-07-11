@@ -85,7 +85,27 @@ class MyWidget(QtWidgets.QWidget,ConnectionObserver):
         self.progressBar.setVisible(False)
         """
         """
+        self.massageLabel = QtWidgets.QLabel('')
+        self.connectionButton = QtWidgets.QPushButton('Connect')
+        self.connectionButton.setStyleSheet("""
+        QPushButton {
+            border: 2px solid #e31100;
+            border-radius: 10px;
+            min-width: 80px;
+            color: #e31100;
+        }
 
+        QPushButton:flat {
+            border: none; /* no border for a flat push button */
+        }
+
+        QPushButton:default {
+            border-color: navy; /* make the default button prominent */
+        }        
+        """)
+        self.connectionButton.setFixedWidth(int(self.labelWidth / 2))
+        self.connectionButton.clicked.connect(self.connect)
+        self.connectionButton.setVisible(False)
         """
         """
         self.connected = False
@@ -97,30 +117,27 @@ class MyWidget(QtWidgets.QWidget,ConnectionObserver):
 
         self.lHExternalRows = QtWidgets.QHBoxLayout()
         self.lBottomRow = QtWidgets.QHBoxLayout()
+        self.lBottomRow.setSpacing(0)
+        self.lBottomRow.setContentsMargins(0,0,0,0)
 
         self.lMainVertical.addLayout(self.lHExternalRows)
         self.lMainVertical.addLayout(self.lBottomRow)
 
-        self.lLeftColumn = QtWidgets.QVBoxLayout()
-        self.lLeftColumn.setContentsMargins(0,0,0,0)
-        self.lLeftColumn.setSpacing(0)
-
         self.lCentraColumn = QtWidgets.QVBoxLayout()
-
-
         self.lHExternalRows.addLayout(self.lCentraColumn)
-        self.lBottomRow.addLayout(self.lLeftColumn)
 
 
-        self.lLeftColumn.addWidget(self.infoLabel)
-        self.lLeftColumn.addWidget(self.infoStartPrenotazione)
-        self.lLeftColumn.addWidget(self.infoEndReservation)
+        self.lBottomRow.addWidget(self.connectionButton)
+        self.lBottomRow.addWidget(self.massageLabel)
+
         """
         Layout for time info
         """
         self.lCentraColumn.addWidget(self.progressBar)
         self.lCentraColumn.addWidget(self.timeLabel)
-
+        self.lCentraColumn.addWidget(self.infoLabel)
+        self.lCentraColumn.addWidget(self.infoStartPrenotazione)
+        self.lCentraColumn.addWidget(self.infoEndReservation)
         """
         """
 
@@ -178,9 +195,12 @@ class MyWidget(QtWidgets.QWidget,ConnectionObserver):
                 self.end   = datetime.fromisoformat(str(payload['endTime']))
                 delta =  (self.end - self.start)
                 self.secondi = delta.total_seconds()
+                self.infoStartPrenotazione.setText("Inizio: "+self.start.isoformat())
+                self.infoEndReservation.setText("Fine: "+self.end.isoformat())
 
         except json.decoder.JSONDecodeError:
             _logging.error(f"received message {message}: {message}")
+            self.massageLabel.setText(f"received message {message}: {message}")
 
 
 
@@ -195,9 +215,10 @@ class MyWidget(QtWidgets.QWidget,ConnectionObserver):
     def onConnected(self, frame):
         self.connected = True
         self.client.subscribe(self.topic, callback=self.onReceiveMessage)
+        self.connectionButton.setVisible(False)
 
     def notifyOnClose(self, observable=None, message=None, exception=None):
-        pass
+        self.connectionButton.setVisible(True)
 
     def notifyOnOpen(self, observable=None, message=None, exception=None):
         pass
@@ -208,15 +229,18 @@ class MyWidget(QtWidgets.QWidget,ConnectionObserver):
     def notifyOnError(self, observable=None, message=None, exception=None):
         print(message)
         print(exception)
+        self.connected = False
+        self.connectionButton.setVisible(True)
+        self.massageLabel.setText(message)
+
 
 
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
     app.setStyle('Fusion')
-    #app.setStyleSheet("QLabel {background-color: #fff; border: 1px solid black;}")
     app.setApplicationName("Reservation Info")
-    widget = MyWidget(app,"ws://localhost:8080/ssc/prenostazione-risorse/websocket",
+    widget = MyWidget(app,"ws://totem:8080/ssc/prenostazione-risorse/websocket",
                        "/scheduler")
 
 
