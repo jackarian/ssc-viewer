@@ -68,7 +68,7 @@ class MyWidget(QtWidgets.QWidget,ConnectionObserver,stomp.ConnectionListener):
         """
         self.timeLabel = QtWidgets.QLabel('')
         self.timeLabel.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
-        self.timeLabel.setStyleSheet("QLabel {background-color: #fff; border: 1px solid black; border-radius: 10px; font-size: 30px; font-weight: bold; color:#e31100;}")
+        self.timeLabel.setStyleSheet("QLabel {background-color: #fff; border: 1px solid black; border-radius: 10px; font-size: 20px; font-weight: bold; color:#e31100;}")
         self.timeLabel.setFixedWidth(self.labelWidth)
         self.progressBar = QtWidgets.QProgressBar()
         self.progressBar.setStyleSheet(""" 
@@ -113,7 +113,7 @@ class MyWidget(QtWidgets.QWidget,ConnectionObserver,stomp.ConnectionListener):
 
 
         self.lMainVertical = QtWidgets.QVBoxLayout()
-        self.lMainVertical.addWidget(self.titleLabel)
+        #self.lMainVertical.addWidget(self.titleLabel)
         self.lMainVertical.addWidget(self.roomName)
 
         self.lHExternalRows = QtWidgets.QHBoxLayout()
