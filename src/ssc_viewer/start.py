@@ -45,7 +45,7 @@ class MyWidget(QtWidgets.QWidget,ConnectionObserver,stomp.ConnectionListener):
         self.roomName = QtWidgets.QLabel(self.config['station']['name'])
         self.roomName.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
         self.roomName.setFixedHeight(103)
-        self.roomName.setStyleSheet("QLabel {background-color: #fff; font-size: 50px; font-weight: bold; color: #e31100}")
+        self.roomName.setStyleSheet("QLabel {background-color: #fff; font-size: 30px; font-weight: bold; color: #e31100}")
         """
         Labels to show reservation time info 
         """
@@ -113,7 +113,7 @@ class MyWidget(QtWidgets.QWidget,ConnectionObserver,stomp.ConnectionListener):
 
 
         self.lMainVertical = QtWidgets.QVBoxLayout()
-        #self.lMainVertical.addWidget(self.titleLabel)
+        self.lMainVertical.addWidget(self.titleLabel)
         self.lMainVertical.addWidget(self.roomName)
 
         self.lHExternalRows = QtWidgets.QHBoxLayout()
