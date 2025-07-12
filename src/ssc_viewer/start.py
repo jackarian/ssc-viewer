@@ -251,7 +251,7 @@ if __name__ == "__main__":
     app = QApplication(sys.argv)
     app.setStyle('Fusion')
     app.setApplicationName("Reservation Info")
-    widget = MyWidget(app,"ws://totem:8080/ssc/prenostazione-risorse/websocket",
+    widget = MyWidget(app,"ws://totem.padova:8080/ssc/prenostazione-risorse/websocket",
                        "/scheduler")
 
 
