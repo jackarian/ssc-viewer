@@ -50,7 +50,7 @@ class MyWidget(QtWidgets.QWidget,ConnectionObserver,stomp.ConnectionListener):
         Labels to show reservation time info 
         """
         self.infoLabel = QtWidgets.QLabel('Info prenotazione:')
-        self.infoLabel.setStyleSheet("QLabel {background-color: #fff; border: 1px solid black; border-radius: 10px; font-size: 35px; font-weight: bold; color:#e31100;}")
+        self.infoLabel.setStyleSheet("QLabel {background-color: #fff; border: 1px solid black; border-radius: 10px; font-size: 20px; font-weight: bold; color:#e31100;}")
         self.infoLabel.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
         self.infoLabel.setFixedWidth(self.labelWidth)
 
