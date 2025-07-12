@@ -148,7 +148,7 @@ class MyWidget(QtWidgets.QWidget,ConnectionObserver,stomp.ConnectionListener):
         self.uri = ws_uri
         self.start = None
         self.end = None
-        ##self.showFullScreen()
+        self.showFullScreen()
         sscCli = SscClient(self.config['server']['address'], self.config['plc']['id'])
         self.client = Client(ws_uri, self)
         self.topic = topic
