@@ -13,18 +13,16 @@ from PySide6.QtWidgets import QApplication, QWidget
 from websocket import _logging
 
 from interfaces.observer import ConnectionObserver
-from rest import restclient
 from ssc_viewer.rest.restclient import SscClient
 from ssc_viewer.stomp_ws.client import Client
 from ssc_viewer.stomp_ws.frame import Frame
 import decimal
 from decimal import Decimal
 from datetime import datetime, time, timedelta
-import stomp
-
+from PySide6.QtGui import QColor,QPalette
 basedir=os.path.dirname(__file__)
 decimal.getcontext().rounding = decimal.ROUND_HALF_EVEN
-class MyWidget(QtWidgets.QWidget,ConnectionObserver,stomp.ConnectionListener):
+class MyWidget(QtWidgets.QWidget,ConnectionObserver):
     def __init__(self,app=None,ws_uri=None, topic=None):
         super().__init__()
         geometry = QGuiApplication.primaryScreen().geometry()
@@ -148,7 +146,7 @@ class MyWidget(QtWidgets.QWidget,ConnectionObserver,stomp.ConnectionListener):
         self.uri = ws_uri
         self.start = None
         self.end = None
-        self.showFullScreen()
+        #self.showFullScreen()
         sscCli = SscClient(self.config['server']['address'], self.config['plc']['id'])
         self.client = Client(ws_uri, self)
         self.topic = topic
@@ -199,7 +197,7 @@ class MyWidget(QtWidgets.QWidget,ConnectionObserver,stomp.ConnectionListener):
                 self.end   = datetime.fromisoformat(str(payload['endTime']))
                 delta =  (self.end - self.start)
                 self.secondi = delta.total_seconds()
-                self.infoStartPrenotazione.setText("Inizio: "+self.start.isoformat())
+                self.infoStartPrenotazione.setText("00Inizio: "+self.start.isoformat())
                 self.infoEndReservation.setText("Fine: "+self.end.isoformat())
 
 
@@ -242,17 +240,20 @@ class MyWidget(QtWidgets.QWidget,ConnectionObserver,stomp.ConnectionListener):
 
     def notifyOnError(self, observable=None, message=None, exception=None):
         self.connected = False
-        self.massageLabel.setText("Errore conessione al server")
+        self.massageLabel.setText("Error connecting to broker.")
         self.connectionButton.setVisible(True)
 
 
 
 if __name__ == "__main__":
-    app = QApplication(sys.argv)
-    app.setStyle('Fusion')
-    app.setApplicationName("Reservation Info")
-    widget = MyWidget(app,"ws://totem.padova:8080/ssc/prenostazione-risorse/websocket",
-                       "/scheduler")
-
-
-    sys.exit(app.exec())
+    try:
+        app = QApplication(sys.argv)
+        palette = QPalette()
+        palette.setColor(QPalette.ColorRole.Window, QColor(255,255,255))
+        app.setApplicationName("Reservation Info")
+        app.setPalette(palette)
+        widget = MyWidget(app,"ws://totem.padova:8080/ssc/prenostazione-risorse/websocket",
+                           "/scheduler")
+        sys.exit(app.exec())
+    except Exception as ex:
+        print(ex)
