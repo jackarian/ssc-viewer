@@ -7,6 +7,21 @@ from requests import Response
 #from opener.opera_lock_operner import OperaLockOpenerFacade
 
 
+def apriporta():
+    try:
+      ## self.opener.unlock()
+      response: Response = requests.request("GET","http://server.door/open")
+      response = Response()
+      response.status_code = 200
+      return response
+
+    except Exception as ex:
+        response = Response()
+        response.status_code = 500
+        response.reason = ex.__str__()
+        return response
+
+
 class SscClient:
     def __init__(self, host, plc):
         self.host = host
@@ -34,7 +49,7 @@ class SscClient:
           return response
         
         except Exception as ex:
-            response = Response
+            response = Response()
             response.status_code = 500
             return response
         
@@ -44,7 +59,7 @@ class SscClient:
           return response
         
         except Exception as ex:                        
-            response = Response
+            response = Response()
             response.status_code = 500
             return response
         
@@ -54,24 +69,9 @@ class SscClient:
           return response
         
         except Exception as ex:
-            response = Response
+            response = Response()
             response.status_code = 500
-            response.reason = ex
-            return response
-          
-
-    def apriporta(self):
-        try:
-          ## self.opener.unlock()
-          response: Response = requests.request("GET","http://server.door/open")
-          response = Response
-          response.status_code = 200
-          return response
-        
-        except Exception as ex:
-            response = Response
-            response.status_code = 500
-            response.reason = ex
+            response.reason = ex.__str__()
             return response
 
 

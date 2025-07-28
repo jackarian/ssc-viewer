@@ -7,7 +7,7 @@ from threading import Thread
 
 import yaml
 from PySide6.QtCore import QTimer
-from PySide6.QtGui import QAction, QKeySequence, QGuiApplication, QPixmap, QImage
+from PySide6.QtGui import QAction, QKeySequence, QGuiApplication, QPixmap, QImage, Qt
 from PySide6 import QtWidgets, QtCore
 from PySide6.QtWidgets import QApplication, QWidget
 from websocket import _logging
@@ -23,18 +23,19 @@ from PySide6.QtGui import QColor,QPalette
 basedir=os.path.dirname(__file__)
 decimal.getcontext().rounding = decimal.ROUND_HALF_EVEN
 class MyWidget(QtWidgets.QWidget,ConnectionObserver):
-    def __init__(self,app=None,ws_uri=None, topic=None):
+    def __init__(self,app=None,ws_uri=None, topic=None,fullscreen=True):
         super().__init__()
+        self.lCentraColumn:QtWidgets = None
+        self.lBottomRow:QtWidgets = None
+        self.lHExternalRows:QtWidgets = None
+        self.lMainVertical:QtWidgets = None
         geometry = QGuiApplication.primaryScreen().geometry()
         self.labelWidth= int(geometry.width() / 2)
         self._configureFromFile()
         self.tag=self.config['station']['tag']
         self.thread:Thread= None
         self.secondi = 0
-        self.timer = QTimer()
-        self.timer.setInterval(1000)
-        self.timer.timeout.connect(self.update_counter)
-        self.timer.start()
+
 
         self.titleLabel = QtWidgets.QLabel('Title')
         self.titleLabel.setPixmap(QPixmap(os.path.join(basedir,'./img/padovamusic.png')))
@@ -109,25 +110,7 @@ class MyWidget(QtWidgets.QWidget,ConnectionObserver):
         """
         self.connected = False
 
-
-        self.lMainVertical = QtWidgets.QVBoxLayout()
-        self.lMainVertical.addWidget(self.titleLabel)
-        self.lMainVertical.addWidget(self.roomName)
-
-        self.lHExternalRows = QtWidgets.QHBoxLayout()
-        self.lBottomRow = QtWidgets.QHBoxLayout()
-        self.lBottomRow.setSpacing(0)
-        self.lBottomRow.setContentsMargins(0,0,0,0)
-
-        self.lMainVertical.addLayout(self.lHExternalRows)
-        self.lMainVertical.addLayout(self.lBottomRow)
-
-        self.lCentraColumn = QtWidgets.QVBoxLayout()
-        self.lHExternalRows.addLayout(self.lCentraColumn)
-
-
-        self.lBottomRow.addWidget(self.connectionButton)
-        self.lBottomRow.addWidget(self.massageLabel)
+        self.setLabels()
 
         """
         Layout for time info
@@ -146,12 +129,32 @@ class MyWidget(QtWidgets.QWidget,ConnectionObserver):
         self.uri = ws_uri
         self.start = None
         self.end = None
-        self.showFullScreen()
-        sscCli = SscClient(self.config['server']['address'], self.config['plc']['id'])
+        if fullscreen:
+            self.showFullScreen()
+        ##sscCli = SscClient(self.config['server']['address'], self.config['plc']['id'])
         self.client = Client(ws_uri, self)
         self.topic = topic
+        self.timer = QTimer()
+        self.timer.setInterval(1000)
+        self.timer.setTimerType(Qt.TimerType.PreciseTimer)
+        self.timer.timeout.connect(self.update_counter)
         self.connectToBroker()
         self.show()
+
+    def setLabels(self):
+        self.lMainVertical = QtWidgets.QVBoxLayout()
+        self.lMainVertical.addWidget(self.titleLabel)
+        self.lMainVertical.addWidget(self.roomName)
+        self.lHExternalRows = QtWidgets.QHBoxLayout()
+        self.lBottomRow = QtWidgets.QHBoxLayout()
+        self.lBottomRow.setSpacing(0)
+        self.lBottomRow.setContentsMargins(0, 0, 0, 0)
+        self.lMainVertical.addLayout(self.lHExternalRows)
+        self.lMainVertical.addLayout(self.lBottomRow)
+        self.lCentraColumn = QtWidgets.QVBoxLayout()
+        self.lHExternalRows.addLayout(self.lCentraColumn)
+        self.lBottomRow.addWidget(self.connectionButton)
+        self.lBottomRow.addWidget(self.massageLabel)
 
     @QtCore.Slot()
     def update_counter(self):
@@ -168,9 +171,15 @@ class MyWidget(QtWidgets.QWidget,ConnectionObserver):
 
             ore, mi = divmod(float(self.secondi), 3600)
             m, s = divmod(float(mi), 60)
-            self.timeLabel.setText('Chiusura prenotazion tra : ' + str(int(ore))+":"+str(int(m))+":"+str(int(s)))
+            self.timeLabel.setText('Chiusura prenotazione tra : ' + str(int(ore))+":"+str(int(m))+":"+str(int(s)))
             self.secondi -= 1
             self.progressBar.setValue(self.secondi)
+
+        self.reconnect()
+
+
+
+
 
 
 
@@ -197,7 +206,7 @@ class MyWidget(QtWidgets.QWidget,ConnectionObserver):
                 self.end   = datetime.fromisoformat(str(payload['endTime']))
                 delta =  (self.end - self.start)
                 self.secondi = delta.total_seconds()
-                self.infoStartPrenotazione.setText("00Inizio: "+self.start.isoformat())
+                self.infoStartPrenotazione.setText("Inizio: "+self.start.isoformat())
                 self.infoEndReservation.setText("Fine: "+self.end.isoformat())
 
 
@@ -212,6 +221,7 @@ class MyWidget(QtWidgets.QWidget,ConnectionObserver):
             self.thread = Thread(target=self.client.connect,kwargs= {'connectCallback': self.onConnected,'timeout': 10000})
             self.thread.daemon = True
             self.thread.start()
+            self.timer.start()
 
     def reconnect(self):
         if not self.client.connected:
