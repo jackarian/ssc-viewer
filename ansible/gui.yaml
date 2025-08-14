@@ -1,0 +1,48 @@
+# categories.yaml file
+header:
+
+   text: Smart Station Entry
+
+subheader:
+
+  text: Avvicina il tuo qrcode al lettore
+
+title:
+
+  text:
+
+body:
+
+  text:
+
+plc:
+
+  id: 9900001
+
+server:
+
+  address: 192.168.178.21
+
+  port: 8080
+
+  enpoint-validation: /ssc/api/location/opener
+
+mqtt:
+
+  broker: mqtt.back-iot.it
+
+  port: 1883
+
+  topic: ssc/reservation
+
+  client_id: 14AV61Z
+
+  username: jackarian
+
+  password: knl3M00coj
+
+station:
+
+  name: Sala Grande
+
+  tag: 14AV61Z
