@@ -21,6 +21,10 @@ import decimal
 from decimal import Decimal
 from datetime import datetime, time, timedelta
 from PySide6.QtGui import QColor,QPalette
+
+from ssc_viewer.stylesheet.interface_styles import ROM_NAME_STYLE, INFO_LABEL_STYLE, PROGRESS_LABEL_STYLE, \
+    CONNECTION_BUTTON_STYLE
+
 basedir=os.path.dirname(__file__)
 decimal.getcontext().rounding = decimal.ROUND_HALF_EVEN
 NESSUNA_SESSIONE_IN_CORSO = "Nessuna sessione in corso"
@@ -38,6 +42,7 @@ def set_logger(logger: logging.Logger):
     logger.addHandler(h)
 
 class MyWidget(QtWidgets.QWidget,ConnectionObserver):
+    # noinspection PyTypeChecker
     def __init__(self,app=None,ws_uri=None, topic=None,fullscreen=True,logger=None):
         super().__init__()
         if logger is None:
@@ -59,19 +64,19 @@ class MyWidget(QtWidgets.QWidget,ConnectionObserver):
         self.secondi = 0
 
 
-        self.titleLabel = QtWidgets.QLabel('Title')
+        self.titleLabel = QtWidgets.QLabel('')
         self.titleLabel.setPixmap(QPixmap(os.path.join(basedir,'./img/padovamusic.png')))
         self.titleLabel.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
         self.titleLabel.setFixedHeight(103)
         self.roomName = QtWidgets.QLabel(self.config['station']['name'])
         self.roomName.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
         self.roomName.setFixedHeight(103)
-        self.roomName.setStyleSheet("QLabel {background-color: #fff; font-size: 30px; font-weight: bold; color: #e31100}")
+        self.roomName.setStyleSheet(ROM_NAME_STYLE)
         """
         Labels to show reservation time info 
         """
         self.infoLabel = QtWidgets.QLabel('Info prenotazione:')
-        self.infoLabel.setStyleSheet("QLabel {background-color: #fff; border: 1px solid black; border-radius: 10px; font-size: 20px; font-weight: bold; color:#e31100;}")
+        self.infoLabel.setStyleSheet(INFO_LABEL_STYLE)
         self.infoLabel.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
         self.infoLabel.setFixedWidth(self.labelWidth)
 
@@ -92,39 +97,14 @@ class MyWidget(QtWidgets.QWidget,ConnectionObserver):
         self.timeLabel.setStyleSheet("QLabel {background-color: #fff; border: 1px solid black; border-radius: 10px; font-size: 20px; font-weight: bold; color:#e31100;}")
         self.timeLabel.setFixedWidth(self.labelWidth)
         self.progressBar = QtWidgets.QProgressBar()
-        self.progressBar.setStyleSheet(""" 
-        QProgressBar { 
-        border: 2px solid grey; 
-        border-radius: 5px;  
-        text-align: center;
-        } 
-        QProgressBar::chunk {
-        background-color: #e31100;
-        width: 20px;
-        }
-        """)
+        self.progressBar.setStyleSheet(PROGRESS_LABEL_STYLE)
         self.progressBar.setFixedWidth(self.labelWidth)
         self.progressBar.setVisible(False)
         """
         """
         self.massageLabel = QtWidgets.QLabel('')
         self.connectionButton = QtWidgets.QPushButton(CONNECT)
-        self.connectionButton.setStyleSheet("""
-        QPushButton {
-            border: 2px solid #e31100;
-            border-radius: 10px;
-            min-width: 80px;
-            color: #e31100;
-        }
-
-        QPushButton:flat {
-            border: none; /* no border for a flat push button */
-        }
-
-        QPushButton:default {
-            border-color: navy; /* make the default button prominent */
-        }        
-        """)
+        self.connectionButton.setStyleSheet(CONNECTION_BUTTON_STYLE)
         self.connectionButton.setFixedWidth(int(self.labelWidth / 2))
         self.connectionButton.clicked.connect(self.reconnect)
         self.connectionButton.setVisible(False)
