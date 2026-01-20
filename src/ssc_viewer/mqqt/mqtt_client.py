@@ -4,8 +4,6 @@ import random
 
 from paho.mqtt import client as mqtt_client
 
-
-
 broker = 'mqtt.back-iot.it'
 port = 1883
 topic = "padova/entry"

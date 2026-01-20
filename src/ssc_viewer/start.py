@@ -1,3 +1,4 @@
+import decimal
 import json
 import logging
 import os.path
@@ -8,23 +9,19 @@ from pathlib import Path
 from threading import Thread
 
 import yaml
-from PySide6.QtCore import QTimer
-from PySide6.QtGui import QAction, QKeySequence, QGuiApplication, QPixmap, QImage, Qt
 from PySide6 import QtWidgets, QtCore
-from PySide6.QtWidgets import QApplication, QWidget
+from PySide6.QtCore import QTimer
+from PySide6.QtGui import QColor, QPalette
+from PySide6.QtGui import QGuiApplication, QPixmap, Qt
+from PySide6.QtWidgets import QApplication
 from requests import Response
-
-from interfaces.observer import ConnectionObserver
 from ssc_viewer.rest.restclient import SscClient
 from ssc_viewer.stomp_ws.client import Client
 from ssc_viewer.stomp_ws.frame import Frame
-import decimal
-from decimal import Decimal
-from datetime import datetime, time, timedelta
-from PySide6.QtGui import QColor,QPalette
-
 from ssc_viewer.stylesheet.interface_styles import ROM_NAME_STYLE, INFO_LABEL_STYLE, PROGRESS_LABEL_STYLE, \
     CONNECTION_BUTTON_STYLE
+
+from interfaces.observer import ConnectionObserver
 
 basedir=os.path.dirname(__file__)
 decimal.getcontext().rounding = decimal.ROUND_HALF_EVEN

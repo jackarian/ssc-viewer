@@ -1,7 +1,7 @@
-from paho.mqtt import client as mqtt_client
-import random
 import logging
+import random
 
+from paho.mqtt import client as mqtt_client
 from ssc_viewer.interfaces.observer import ConnectionObserver
 
 logging.basicConfig(level=logging.DEBUG)

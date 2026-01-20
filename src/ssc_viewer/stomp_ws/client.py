@@ -1,9 +1,10 @@
+import logging
 import time
 from threading import Thread
 
-from .frame import Frame
 import websocket
-import logging
+
+from .frame import Frame
 
 VERSIONS = '1.0,1.1'
 
