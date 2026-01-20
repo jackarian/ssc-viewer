@@ -12,6 +12,7 @@ from PySide6.QtCore import QTimer
 from PySide6.QtGui import QAction, QKeySequence, QGuiApplication, QPixmap, QImage, Qt
 from PySide6 import QtWidgets, QtCore
 from PySide6.QtWidgets import QApplication, QWidget
+from requests import Response
 
 from interfaces.observer import ConnectionObserver
 from ssc_viewer.rest.restclient import SscClient
@@ -133,7 +134,11 @@ class MyWidget(QtWidgets.QWidget,ConnectionObserver):
         self.end = None
         if fullscreen:
             self.showFullScreen()
-        ##sscCli = SscClient(self.config['server']['address'], self.config['plc']['id'])
+        self.sscCli = SscClient(self.config['server']['proto']+'://'
+            +self.config['server']['address']
+                                +':'+str(self.config['server']['port'])
+                                +self.config['server']['resource'],
+                                 self.config['plc']['id'])
         self.client = Client(ws_uri, self)
         self.topic = topic
         self.timer = QTimer()
@@ -163,7 +168,7 @@ class MyWidget(QtWidgets.QWidget,ConnectionObserver):
     @QtCore.Slot()
     def update_counter(self):
        try:
-            if self.secondi == 0:
+            if self.secondi <= 0 :
                 self.progressBar.setVisible(False)
                 self.timeLabel.setText(NESSUNA_SESSIONE_IN_CORSO)
                 self.infoEndReservation.setText('')
@@ -179,7 +184,7 @@ class MyWidget(QtWidgets.QWidget,ConnectionObserver):
                 self.secondi -= 1
                 self.progressBar.setValue(self.secondi)
 
-            self.reconnect()
+            ##self.reconnect()
 
        except Exception as ex:
            self.logger.exception(ex)
@@ -202,13 +207,7 @@ class MyWidget(QtWidgets.QWidget,ConnectionObserver):
         self.logger.debug(message.body)
         try:
             payload = json.loads(message.body)
-            if payload['resourceTag'] ==self.tag:
-                self.progressBar.setVisible(False)
-                self.start = datetime.fromisoformat(str(payload['startTime']))
-                self.end   = datetime.fromisoformat(str(payload['endTime']))
-                delta =  (self.end - self.start)
-                self.secondi = delta.total_seconds()
-                self.infoEndReservation.setText("Fine sessione: "+self.end.strftime("%H:%M"))
+            self._setReservation(payload)
 
 
         except json.decoder.JSONDecodeError as ex:
@@ -216,13 +215,21 @@ class MyWidget(QtWidgets.QWidget,ConnectionObserver):
             self.logger.error(ex)
             self.massageLabel.setText(f"received message {message}: {message}")
 
+    def _setReservation(self,payload):
+        if payload['resourceTag'] ==self.tag:
+            self.progressBar.setVisible(False)
+            self.start = datetime.fromisoformat(str(payload['startTime']))
+            self.end   = datetime.fromisoformat(str(payload['endTime']))
 
+            delta =  (self.end - datetime.now())
+            self.secondi = delta.total_seconds()
+            self.infoEndReservation.setText("Fine sessione: "+self.end.strftime("%H:%M"))
 
     def connectToBroker(self):
 
         self.logger.log(level=logging.INFO, msg="Connecting to broker.")
         if not self.client.connected:
-            self.thread = Thread(target=self.client.connect,kwargs= {'connectCallback': self.onConnected,'timeout': 10000})
+            self.thread = Thread(target=self.client.connect,kwargs= {'connectCallback': self.onConnected,'timeout': 5000})
             self.thread.daemon = True
             self.thread.start()
             self.timer.start()
@@ -231,7 +238,9 @@ class MyWidget(QtWidgets.QWidget,ConnectionObserver):
 
         try:
             if self.client is None or   not self.client.connected:
-                self.logger.info(msg="Reconnecting to broker...")
+
+                self.connectionButton.setEnabled(False)
+                self.massageLabel.setText("Trying connecting to broker.")
                 if self.client is not None:
                       self.client.stop()
                 self.client=None
@@ -241,6 +250,7 @@ class MyWidget(QtWidgets.QWidget,ConnectionObserver):
                 self.connectToBroker()
         except Exception  as ex:
                 self.logger.log(level=logging.ERROR, msg=ex.__str__())
+                self.connectionButton.setEnabled(True)
 
 
     def onConnected(self, frame):
@@ -248,6 +258,14 @@ class MyWidget(QtWidgets.QWidget,ConnectionObserver):
         self.client.subscribe(self.topic, callback=self.onReceiveMessage)
         self.connectionButton.setVisible(False)
         self.massageLabel.setText("")
+        self.sscCli.currentReservation(self.tag,callback=self.manageResponse)
+
+    def manageResponse(self,response:Response):
+        self.logger.log(level=logging.INFO, msg=response)
+        if response.status_code == 200:
+            body = response.json()
+            if body['result'] is not None:
+                self._setReservation(body['result'])
 
     def notifyOnClose(self, observable=None, message=None, exception=None):
         self.connectionButton.setVisible(True)
@@ -259,9 +277,11 @@ class MyWidget(QtWidgets.QWidget,ConnectionObserver):
         pass
 
     def notifyOnError(self, observable=None, message=None, exception=None):
+        self.logger.error(exception)
         self.connected = False
         self.massageLabel.setText("Error connecting to broker.")
         self.connectionButton.setVisible(True)
+        self.connectionButton.setEnabled(True)
 
 
 
@@ -272,7 +292,7 @@ if __name__ == "__main__":
         palette.setColor(QPalette.ColorRole.Window, QColor(255,255,255))
         app.setApplicationName(APPLICATION_NAME)
         app.setPalette(palette)
-        widget = MyWidget(app,"ws://totem.padova:8080/ssc/prenostazione-risorse/websocket",
+        widget = MyWidget(app,"ws://totem.local:8080/ssc/prenostazione-risorse/websocket",
                            "/scheduler",False)
         sys.exit(app.exec())
     except Exception as ex:

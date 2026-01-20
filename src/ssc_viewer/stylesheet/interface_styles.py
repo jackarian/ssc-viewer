@@ -25,7 +25,12 @@ CONNECTION_BUTTON_STYLE = """
         }
 
         QPushButton:flat {
-            border: none; /* no border for a flat push button */
+            border: 2px solid #e31100;
+            background-color: #e31100;
+        }
+        QPushButton:pressed {
+            border: 2px solid #e31100;
+            background-color: #f31100;
         }
 
         QPushButton:default {

@@ -25,7 +25,7 @@ server:
 
   port: 8080
 
-  enpoint-validation: /ssc/api/location/opener
+  endpoint-validation: /ssc/api/location/opener
 
 mqtt:
 
@@ -46,3 +46,9 @@ station:
   name: Sala Grande
 
   tag: 14AV61Z
+
+email:
+
+  api_key: 17851966dde377bf23d30c4731f48fe8
+
+  email_sender: salagrande
