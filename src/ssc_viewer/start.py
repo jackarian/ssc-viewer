@@ -281,7 +281,6 @@ class MyWidget(QtWidgets.QWidget,ConnectionObserver):
         self.connectionButton.setEnabled(True)
 
 
-
 if __name__ == "__main__":
     try:
         app = QApplication(sys.argv)
@@ -289,7 +288,7 @@ if __name__ == "__main__":
         palette.setColor(QPalette.ColorRole.Window, QColor(255,255,255))
         app.setApplicationName(APPLICATION_NAME)
         app.setPalette(palette)
-        widget = MyWidget(app,"ws://totem.local:8080/ssc/prenostazione-risorse/websocket",
+        widget = MyWidget(app,"ws://totem.padova:8080/ssc/prenostazione-risorse/websocket",
                            "/scheduler",False)
         sys.exit(app.exec())
     except Exception as ex:
