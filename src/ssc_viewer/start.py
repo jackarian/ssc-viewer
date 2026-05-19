@@ -3,6 +3,7 @@ import json
 import logging
 import os.path
 import sys
+from requests import Response
 from datetime import datetime
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
@@ -14,7 +15,6 @@ from PySide6.QtCore import QTimer
 from PySide6.QtGui import QColor, QPalette
 from PySide6.QtGui import QGuiApplication, QPixmap, Qt
 from PySide6.QtWidgets import QApplication
-from requests import Response
 from ssc_viewer.rest.restclient import SscClient
 from ssc_viewer.stomp_ws.client import Client
 from ssc_viewer.stomp_ws.frame import Frame
