@@ -1,0 +1,26 @@
+- name: Setup ssc-viewer su macchina remota
+  hosts: raspberry_station
+  become: yes
+  vars_files:
+    - git-config.yml
+    - dir-vars.yml
+  tasks:
+    - name: Crea la directory di destinazione
+      file:
+        path: "{{ git_directory }}"
+        state: directory
+        mode: '0755'
+        owner: "{{ ansible_user }}"
+        group: "{{ ansible_user }}"
+
+    - name: Installa git se necessario
+      package:
+        name: git
+        state: present
+    - name: Clone progetto git
+      git:
+        repo: "{{ git_repo_url }}"
+        dest: "{{ git_directory }}/ssc-viewer"
+        key_file: "/home/{{ ansible_user }}/.ssh/id_rsa"
+        accept_hostkey: yes
+      become_user: "{{ ansible_user }}"

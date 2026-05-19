@@ -1,30 +1,55 @@
+import decimal
 import json
+import logging
 import os.path
 import sys
 from datetime import datetime
+from logging.handlers import RotatingFileHandler
 from pathlib import Path
 from threading import Thread
 
 import yaml
-from PySide6.QtCore import QTimer
-from PySide6.QtGui import QAction, QKeySequence, QGuiApplication, QPixmap, QImage, Qt
 from PySide6 import QtWidgets, QtCore
-from PySide6.QtWidgets import QApplication, QWidget
-from websocket import _logging
-
-from interfaces.observer import ConnectionObserver
+from PySide6.QtCore import QTimer
+from PySide6.QtGui import QColor, QPalette
+from PySide6.QtGui import QGuiApplication, QPixmap, Qt
+from PySide6.QtWidgets import QApplication
+from requests import Response
 from ssc_viewer.rest.restclient import SscClient
 from ssc_viewer.stomp_ws.client import Client
 from ssc_viewer.stomp_ws.frame import Frame
-import decimal
-from decimal import Decimal
-from datetime import datetime, time, timedelta
-from PySide6.QtGui import QColor,QPalette
+from ssc_viewer.stylesheet.interface_styles import ROM_NAME_STYLE, INFO_LABEL_STYLE, PROGRESS_LABEL_STYLE, \
+    CONNECTION_BUTTON_STYLE
+
+from interfaces.observer import ConnectionObserver
+
 basedir=os.path.dirname(__file__)
 decimal.getcontext().rounding = decimal.ROUND_HALF_EVEN
+NESSUNA_SESSIONE_IN_CORSO = "Nessuna sessione in corso"
+CONNECT="Connect"
+DISCONNECT="Disconnect"
+APPLICATION_NAME="Reservation Info"
+
+
+def set_logger(logger: logging.Logger):
+    formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+    h = RotatingFileHandler(filename=os.path.join(basedir, './log/app.log'), mode='a', maxBytes=1048576,
+                            backupCount=10)
+    h.setLevel(logging.INFO)
+    h.setFormatter(formatter)
+    logger.addHandler(h)
+
 class MyWidget(QtWidgets.QWidget,ConnectionObserver):
-    def __init__(self,app=None,ws_uri=None, topic=None,fullscreen=True):
+    # noinspection PyTypeChecker
+    def __init__(self,app=None,ws_uri=None, topic=None,fullscreen=True,logger=None):
         super().__init__()
+        if logger is None:
+            self.logger = logging.getLogger(__name__)
+            self.logger.setLevel(logging.INFO)
+            set_logger(self.logger)
+        else:
+            self.logger = logger
+
         self.lCentraColumn:QtWidgets = None
         self.lBottomRow:QtWidgets = None
         self.lHExternalRows:QtWidgets = None
@@ -37,26 +62,26 @@ class MyWidget(QtWidgets.QWidget,ConnectionObserver):
         self.secondi = 0
 
 
-        self.titleLabel = QtWidgets.QLabel('Title')
+        self.titleLabel = QtWidgets.QLabel('')
         self.titleLabel.setPixmap(QPixmap(os.path.join(basedir,'./img/padovamusic.png')))
         self.titleLabel.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
         self.titleLabel.setFixedHeight(103)
         self.roomName = QtWidgets.QLabel(self.config['station']['name'])
         self.roomName.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
         self.roomName.setFixedHeight(103)
-        self.roomName.setStyleSheet("QLabel {background-color: #fff; font-size: 30px; font-weight: bold; color: #e31100}")
+        self.roomName.setStyleSheet(ROM_NAME_STYLE)
         """
         Labels to show reservation time info 
         """
         self.infoLabel = QtWidgets.QLabel('Info prenotazione:')
-        self.infoLabel.setStyleSheet("QLabel {background-color: #fff; border: 1px solid black; border-radius: 10px; font-size: 20px; font-weight: bold; color:#e31100;}")
+        self.infoLabel.setStyleSheet(INFO_LABEL_STYLE)
         self.infoLabel.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
         self.infoLabel.setFixedWidth(self.labelWidth)
 
-        self.infoStartPrenotazione = QtWidgets.QLabel('')
-        self.infoStartPrenotazione.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
-        self.infoStartPrenotazione.setFixedWidth(self.labelWidth)
-        self.infoStartPrenotazione.setStyleSheet("QLabel {background-color: #fff; border-top: 1px solid black; border-radius: 10px; font-size: 20px; font-weight: bold;color:#e31100;}")
+        #self.infoStartPrenotazione = QtWidgets.QLabel('')
+        #self.infoStartPrenotazione.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
+        #self.infoStartPrenotazione.setFixedWidth(self.labelWidth)
+        #self.infoStartPrenotazione.setStyleSheet("QLabel {background-color: #fff; border-top: 1px solid black; border-radius: 10px; font-size: 20px; font-weight: bold;color:#e31100;}")
 
         self.infoEndReservation = QtWidgets.QLabel('')
         self.infoEndReservation.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
@@ -70,39 +95,14 @@ class MyWidget(QtWidgets.QWidget,ConnectionObserver):
         self.timeLabel.setStyleSheet("QLabel {background-color: #fff; border: 1px solid black; border-radius: 10px; font-size: 20px; font-weight: bold; color:#e31100;}")
         self.timeLabel.setFixedWidth(self.labelWidth)
         self.progressBar = QtWidgets.QProgressBar()
-        self.progressBar.setStyleSheet(""" 
-        QProgressBar { 
-        border: 2px solid grey; 
-        border-radius: 5px;  
-        text-align: center;
-        } 
-        QProgressBar::chunk {
-        background-color: #e31100;
-        width: 20px;
-        }
-        """)
+        self.progressBar.setStyleSheet(PROGRESS_LABEL_STYLE)
         self.progressBar.setFixedWidth(self.labelWidth)
         self.progressBar.setVisible(False)
         """
         """
         self.massageLabel = QtWidgets.QLabel('')
-        self.connectionButton = QtWidgets.QPushButton('Connect')
-        self.connectionButton.setStyleSheet("""
-        QPushButton {
-            border: 2px solid #e31100;
-            border-radius: 10px;
-            min-width: 80px;
-            color: #e31100;
-        }
-
-        QPushButton:flat {
-            border: none; /* no border for a flat push button */
-        }
-
-        QPushButton:default {
-            border-color: navy; /* make the default button prominent */
-        }        
-        """)
+        self.connectionButton = QtWidgets.QPushButton(CONNECT)
+        self.connectionButton.setStyleSheet(CONNECTION_BUTTON_STYLE)
         self.connectionButton.setFixedWidth(int(self.labelWidth / 2))
         self.connectionButton.clicked.connect(self.reconnect)
         self.connectionButton.setVisible(False)
@@ -117,8 +117,8 @@ class MyWidget(QtWidgets.QWidget,ConnectionObserver):
         """
         self.lCentraColumn.addWidget(self.progressBar)
         self.lCentraColumn.addWidget(self.timeLabel)
-        self.lCentraColumn.addWidget(self.infoLabel)
-        self.lCentraColumn.addWidget(self.infoStartPrenotazione)
+        #self.lCentraColumn.addWidget(self.infoLabel)
+        #self.lCentraColumn.addWidget(self.infoStartPrenotazione)
         self.lCentraColumn.addWidget(self.infoEndReservation)
         """
         """
@@ -131,7 +131,11 @@ class MyWidget(QtWidgets.QWidget,ConnectionObserver):
         self.end = None
         if fullscreen:
             self.showFullScreen()
-        ##sscCli = SscClient(self.config['server']['address'], self.config['plc']['id'])
+        self.sscCli = SscClient(self.config['server']['proto']+'://'
+            +self.config['server']['address']
+                                +':'+str(self.config['server']['port'])
+                                +self.config['server']['resource'],
+                                 self.config['plc']['id'])
         self.client = Client(ws_uri, self)
         self.topic = topic
         self.timer = QTimer()
@@ -140,6 +144,8 @@ class MyWidget(QtWidgets.QWidget,ConnectionObserver):
         self.timer.timeout.connect(self.update_counter)
         self.connectToBroker()
         self.show()
+
+
 
     def setLabels(self):
         self.lMainVertical = QtWidgets.QVBoxLayout()
@@ -158,36 +164,34 @@ class MyWidget(QtWidgets.QWidget,ConnectionObserver):
 
     @QtCore.Slot()
     def update_counter(self):
-        if self.secondi == 0:
-            self.progressBar.setVisible(False)
-            self.timeLabel.setText('Nessuna Prenotazione')
-            self.infoStartPrenotazione.setText('')
-            self.infoEndReservation.setText('')
-        else:
-            if not self.progressBar.isVisible():
-                self.progressBar.setVisible(True)
-                self.progressBar.setMinimum(0)
-                self.progressBar.setMaximum(self.secondi)
+       try:
+            if self.secondi <= 0 :
+                self.progressBar.setVisible(False)
+                self.timeLabel.setText(NESSUNA_SESSIONE_IN_CORSO)
+                self.infoEndReservation.setText('')
+            else:
+                if not self.progressBar.isVisible():
+                    self.progressBar.setVisible(True)
+                    self.progressBar.setMinimum(0)
+                    self.progressBar.setMaximum(self.secondi)
 
-            ore, mi = divmod(float(self.secondi), 3600)
-            m, s = divmod(float(mi), 60)
-            self.timeLabel.setText('Chiusura prenotazione tra : ' + str(int(ore))+":"+str(int(m))+":"+str(int(s)))
-            self.secondi -= 1
-            self.progressBar.setValue(self.secondi)
+                ore, mi = divmod(float(self.secondi), 3600)
+                m, s = divmod(float(mi), 60)
+                self.timeLabel.setText("La sessione finira'  tra : " + str(int(ore))+":"+str(int(m))+":"+str(int(s)))
+                self.secondi -= 1
+                self.progressBar.setValue(self.secondi)
 
-        self.reconnect()
+            ##self.reconnect()
 
-
-
-
-
+       except Exception as ex:
+           self.logger.exception(ex)
 
 
     def _configureFromFile(self):
         home = str(Path.home())
         with open(r'' + home + '/config/gui.yaml') as file:
             self.config = yaml.load(file, Loader=yaml.FullLoader)
-        print(self.config)
+        self.logger.info(self.config)
 
     def stopTimer(self):
         self.timer.stop()
@@ -197,40 +201,53 @@ class MyWidget(QtWidgets.QWidget,ConnectionObserver):
         self.massageLabel.setText("")
 
     def onReceiveMessage(self, message:Frame):
-        print(message)
+        self.logger.debug(message.body)
         try:
             payload = json.loads(message.body)
-            if payload['resourceTag'] ==self.tag:
-                self.progressBar.setVisible(False)
-                self.start = datetime.fromisoformat(str(payload['startTime']))
-                self.end   = datetime.fromisoformat(str(payload['endTime']))
-                delta =  (self.end - self.start)
-                self.secondi = delta.total_seconds()
-                self.infoStartPrenotazione.setText("Inizio: "+self.start.isoformat())
-                self.infoEndReservation.setText("Fine: "+self.end.isoformat())
+            self._setReservation(payload)
 
 
-        except json.decoder.JSONDecodeError:
-            _logging.error(f"received message {message}: {message}")
+        except json.decoder.JSONDecodeError as ex:
+            self.logger.error(f"received message {message}: {message}")
+            self.logger.error(ex)
             self.massageLabel.setText(f"received message {message}: {message}")
 
+    def _setReservation(self,payload):
+        if payload['resourceTag'] ==self.tag:
+            self.progressBar.setVisible(False)
+            self.start = datetime.fromisoformat(str(payload['startTime']))
+            self.end   = datetime.fromisoformat(str(payload['endTime']))
 
+            delta =  (self.end - datetime.now())
+            self.secondi = delta.total_seconds()
+            self.infoEndReservation.setText("Fine sessione: "+self.end.strftime("%H:%M"))
 
     def connectToBroker(self):
+
+        self.logger.log(level=logging.INFO, msg="Connecting to broker.")
         if not self.client.connected:
-            self.thread = Thread(target=self.client.connect,kwargs= {'connectCallback': self.onConnected,'timeout': 10000})
+            self.thread = Thread(target=self.client.connect,kwargs= {'connectCallback': self.onConnected,'timeout': 5000})
             self.thread.daemon = True
             self.thread.start()
             self.timer.start()
 
     def reconnect(self):
-        if not self.client.connected:
-            self.client.stop()
-            self.client=None
-            self.thread.join()
-            self.thread = None
-            self.client=Client(self.uri, self)
-            self.connectToBroker()
+
+        try:
+            if self.client is None or   not self.client.connected:
+
+                self.connectionButton.setEnabled(False)
+                self.massageLabel.setText("Trying connecting to broker.")
+                if self.client is not None:
+                      self.client.stop()
+                self.client=None
+                self.thread.join()
+                self.thread = None
+                self.client=Client(self.uri, self)
+                self.connectToBroker()
+        except Exception  as ex:
+                self.logger.log(level=logging.ERROR, msg=ex.__str__())
+                self.connectionButton.setEnabled(True)
 
 
     def onConnected(self, frame):
@@ -238,6 +255,14 @@ class MyWidget(QtWidgets.QWidget,ConnectionObserver):
         self.client.subscribe(self.topic, callback=self.onReceiveMessage)
         self.connectionButton.setVisible(False)
         self.massageLabel.setText("")
+        self.sscCli.currentReservation(self.tag,callback=self.manageResponse)
+
+    def manageResponse(self,response:Response):
+        self.logger.log(level=logging.INFO, msg=response)
+        if response.status_code == 200:
+            body = response.json()
+            if body['result'] is not None:
+                self._setReservation(body['result'])
 
     def notifyOnClose(self, observable=None, message=None, exception=None):
         self.connectionButton.setVisible(True)
@@ -249,10 +274,11 @@ class MyWidget(QtWidgets.QWidget,ConnectionObserver):
         pass
 
     def notifyOnError(self, observable=None, message=None, exception=None):
+        self.logger.error(exception)
         self.connected = False
         self.massageLabel.setText("Error connecting to broker.")
         self.connectionButton.setVisible(True)
-
+        self.connectionButton.setEnabled(True)
 
 
 if __name__ == "__main__":
@@ -260,10 +286,10 @@ if __name__ == "__main__":
         app = QApplication(sys.argv)
         palette = QPalette()
         palette.setColor(QPalette.ColorRole.Window, QColor(255,255,255))
-        app.setApplicationName("Reservation Info")
+        app.setApplicationName(APPLICATION_NAME)
         app.setPalette(palette)
         widget = MyWidget(app,"ws://totem.padova:8080/ssc/prenostazione-risorse/websocket",
-                           "/scheduler")
+                           "/scheduler",False)
         sys.exit(app.exec())
     except Exception as ex:
         print(ex)

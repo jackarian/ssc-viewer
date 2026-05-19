@@ -1,7 +1,7 @@
-from paho.mqtt import client as mqtt_client
-import random
 import logging
+import random
 
+from paho.mqtt import client as mqtt_client
 from ssc_viewer.interfaces.observer import ConnectionObserver
 
 logging.basicConfig(level=logging.DEBUG)
@@ -43,7 +43,6 @@ class ClientMqttController:
 
     def onConnect(self,client, userdata, flags, reason_code, properties):
          if reason_code == 0:
-            print("Connected to MQTT Broker!")
             self.client.subscribe(self.topic)
             for observer in self.observers:
              observer.notifyOnOpen(observable=self,message='Connected to mqtt server')
