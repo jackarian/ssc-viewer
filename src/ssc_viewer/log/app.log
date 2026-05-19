@@ -1,0 +1,40 @@
+2026-05-14 19:40:51,772 - __main__ - INFO - {'header': {'text': 'Smart Station Entry'}, 'subheader': {'text': 'Avvicina il tuo qrcode al lettore'}, 'title': {'text': None}, 'body': {'text': None}, 'plc': {'id': 9900001}, 'server': {'proto': 'http', 'address': 'totem.local', 'port': 8080, 'resource': '/ssc', 'enpoint-validation': '/ssc/api/location/opener'}, 'mqtt': {'broker': 'mqtt.back-iot.it', 'port': 1883, 'topic': 'ssc/reservation', 'client_id': 'IN00164', 'username': 'jackarian', 'password': 'knl3M00coj'}, 'station': {'name': 'Sala Piccola', 'tag': 'IN00164'}}
+2026-05-14 19:40:51,842 - __main__ - INFO - Connecting to broker.
+2026-05-14 19:40:55,569 - __main__ - INFO - <Response [500]>
+2026-05-15 11:04:08,921 - __main__ - INFO - {'header': {'text': 'Smart Station Entry'}, 'subheader': {'text': 'Avvicina il tuo qrcode al lettore'}, 'title': {'text': None}, 'body': {'text': None}, 'plc': {'id': 9900001}, 'server': {'proto': 'http', 'address': 'totem.padova', 'port': 8080, 'resource': '/ssc', 'enpoint-validation': '/ssc/api/location/opener'}, 'mqtt': {'broker': 'mqtt.back-iot.it', 'port': 1883, 'topic': 'ssc/reservation', 'client_id': 'IN00164', 'username': 'jackarian', 'password': 'knl3M00coj'}, 'station': {'name': 'Sala Piccola', 'tag': 'IN00164'}}
+2026-05-15 11:04:08,948 - __main__ - INFO - Connecting to broker.
+2026-05-15 11:04:09,854 - __main__ - INFO - <Response [401]>
+2026-05-15 11:12:19,944 - __main__ - INFO - {'header': {'text': 'Smart Station Entry'}, 'subheader': {'text': 'Avvicina il tuo qrcode al lettore'}, 'title': {'text': None}, 'body': {'text': None}, 'plc': {'id': 9900001}, 'server': {'proto': 'http', 'address': 'totem.padova', 'port': 8080, 'resource': '/ssc', 'enpoint-validation': '/ssc/api/location/opener'}, 'mqtt': {'broker': 'mqtt.back-iot.it', 'port': 1883, 'topic': 'ssc/reservation', 'client_id': 'IN00164', 'username': 'jackarian', 'password': 'knl3M00coj'}, 'station': {'name': 'Sala Piccola', 'tag': 'IN00164'}}
+2026-05-15 11:12:19,967 - __main__ - INFO - Connecting to broker.
+2026-05-15 11:12:20,550 - __main__ - INFO - <Response [401]>
+2026-05-15 11:13:16,107 - __main__ - INFO - {'header': {'text': 'Smart Station Entry'}, 'subheader': {'text': 'Avvicina il tuo qrcode al lettore'}, 'title': {'text': None}, 'body': {'text': None}, 'plc': {'id': 9900001}, 'server': {'proto': 'http', 'address': 'locahost', 'port': 8080, 'resource': '/ssc', 'enpoint-validation': '/ssc/api/location/opener'}, 'mqtt': {'broker': 'mqtt.back-iot.it', 'port': 1883, 'topic': 'ssc/reservation', 'client_id': 'IN00164', 'username': 'jackarian', 'password': 'knl3M00coj'}, 'station': {'name': 'Sala Piccola', 'tag': 'IN00164'}}
+2026-05-15 11:13:16,115 - __main__ - INFO - Connecting to broker.
+2026-05-15 11:13:16,396 - __main__ - INFO - <Response [500]>
+2026-05-15 11:14:36,604 - __main__ - INFO - {'header': {'text': 'Smart Station Entry'}, 'subheader': {'text': 'Avvicina il tuo qrcode al lettore'}, 'title': {'text': None}, 'body': {'text': None}, 'plc': {'id': 9900001}, 'server': {'proto': 'http', 'address': 'localhost', 'port': 8080, 'resource': '/ssc', 'enpoint-validation': '/ssc/api/location/opener'}, 'mqtt': {'broker': 'mqtt.back-iot.it', 'port': 1883, 'topic': 'ssc/reservation', 'client_id': 'IN00164', 'username': 'jackarian', 'password': 'knl3M00coj'}, 'station': {'name': 'Sala Piccola', 'tag': 'IN00164'}}
+2026-05-15 11:14:36,612 - __main__ - INFO - Connecting to broker.
+2026-05-15 11:14:36,881 - __main__ - INFO - <Response [401]>
+2026-05-15 12:15:45,867 - __main__ - INFO - {'header': {'text': 'Smart Station Entry'}, 'subheader': {'text': 'Avvicina il tuo qrcode al lettore'}, 'title': {'text': None}, 'body': {'text': None}, 'plc': {'id': 9900001}, 'server': {'proto': 'http', 'address': 'localhost', 'port': 8080, 'resource': '/ssc', 'enpoint-validation': '/ssc/api/location/opener'}, 'mqtt': {'broker': 'mqtt.back-iot.it', 'port': 1883, 'topic': 'ssc/reservation', 'client_id': 'IN00164', 'username': 'jackarian', 'password': 'knl3M00coj'}, 'station': {'name': 'Sala Piccola', 'tag': 'IN00164'}}
+2026-05-15 12:15:46,015 - __main__ - INFO - Connecting to broker.
+2026-05-15 12:15:46,053 - __main__ - ERROR - None
+2026-05-19 09:06:37,652 - __main__ - INFO - {'header': {'text': 'Smart Station Entry'}, 'subheader': {'text': 'Avvicina il tuo qrcode al lettore'}, 'title': {'text': None}, 'body': {'text': None}, 'plc': {'id': 9900001}, 'server': {'proto': 'http', 'address': 'localhost', 'port': 8080, 'resource': '/ssc', 'enpoint-validation': '/ssc/api/location/opener'}, 'mqtt': {'broker': 'mqtt.back-iot.it', 'port': 1883, 'topic': 'ssc/reservation', 'client_id': 'IN00164', 'username': 'jackarian', 'password': 'knl3M00coj'}, 'station': {'name': 'Sala Piccola', 'tag': 'IN00164'}}
+2026-05-19 09:06:37,671 - __main__ - INFO - Connecting to broker.
+2026-05-19 09:06:37,684 - __main__ - ERROR - None
+2026-05-19 09:06:42,938 - __main__ - ERROR - Connection to ws://localhost:8080/ssc/prenostazione-risorse/websocket timed out
+2026-05-19 09:06:42,939 - __main__ - INFO - Connecting to broker.
+2026-05-19 09:06:42,940 - __main__ - ERROR - None
+2026-05-19 09:06:48,194 - __main__ - ERROR - Connection to ws://localhost:8080/ssc/prenostazione-risorse/websocket timed out
+2026-05-19 09:06:48,195 - __main__ - INFO - Connecting to broker.
+2026-05-19 09:06:48,198 - __main__ - ERROR - None
+2026-05-19 09:06:53,450 - __main__ - ERROR - Connection to ws://localhost:8080/ssc/prenostazione-risorse/websocket timed out
+2026-05-19 09:06:53,451 - __main__ - INFO - Connecting to broker.
+2026-05-19 09:06:53,453 - __main__ - ERROR - None
+2026-05-19 09:06:58,706 - __main__ - ERROR - Connection to ws://localhost:8080/ssc/prenostazione-risorse/websocket timed out
+2026-05-19 09:06:58,707 - __main__ - INFO - Connecting to broker.
+2026-05-19 09:06:58,709 - __main__ - ERROR - None
+2026-05-19 09:09:12,487 - __main__ - INFO - {'header': {'text': 'Smart Station Entry'}, 'subheader': {'text': 'Avvicina il tuo qrcode al lettore'}, 'title': {'text': None}, 'body': {'text': None}, 'plc': {'id': 9900001}, 'server': {'proto': 'http', 'address': 'totem.padova', 'port': 8080, 'resource': '/ssc', 'enpoint-validation': '/ssc/api/location/opener'}, 'mqtt': {'broker': 'mqtt.back-iot.it', 'port': 1883, 'topic': 'ssc/reservation', 'client_id': 'IN00164', 'username': 'jackarian', 'password': 'knl3M00coj'}, 'station': {'name': 'Sala Piccola', 'tag': 'IN00164'}}
+2026-05-19 09:09:12,523 - __main__ - INFO - Connecting to broker.
+2026-05-19 09:09:12,627 - __main__ - ERROR - None
+2026-05-19 09:09:17,879 - __main__ - ERROR - Connection to ws://localhost:8080/ssc/prenostazione-risorse/websocket timed out
+2026-05-19 09:10:29,601 - __main__ - INFO - {'header': {'text': 'Smart Station Entry'}, 'subheader': {'text': 'Avvicina il tuo qrcode al lettore'}, 'title': {'text': None}, 'body': {'text': None}, 'plc': {'id': 9900001}, 'server': {'proto': 'http', 'address': 'totem.padova', 'port': 8080, 'resource': '/ssc', 'enpoint-validation': '/ssc/api/location/opener'}, 'mqtt': {'broker': 'mqtt.back-iot.it', 'port': 1883, 'topic': 'ssc/reservation', 'client_id': 'IN00164', 'username': 'jackarian', 'password': 'knl3M00coj'}, 'station': {'name': 'Sala Piccola', 'tag': 'IN00164'}}
+2026-05-19 09:10:29,634 - __main__ - INFO - Connecting to broker.
+2026-05-19 09:10:30,450 - __main__ - INFO - <Response [200]>
