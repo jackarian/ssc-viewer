@@ -223,10 +223,8 @@ class MyWidget(QtWidgets.QWidget,ConnectionObserver):
             self.infoEndReservation.setText("Fine sessione: "+self.end.strftime("%H:%M"))
 
     def connectToBroker(self):
-
-        self.logger.log(level=logging.INFO, msg="Connecting to broker.")
         if not self.client.connected:
-            self.thread = Thread(target=self.client.connect,kwargs= {'connectCallback': self.onConnected,'timeout': 5000})
+            self.thread = Thread(target=self.client.connect,kwargs= {'connectCallback': self.onConnected,'timeout': 10000})
             self.thread.daemon = True
             self.thread.start()
             self.timer.start()
