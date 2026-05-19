@@ -1,3 +1,5 @@
+from urllib.parse import urlparse
+
 Byte = {
     'LF': '\x0A',
     'NULL': '\x00'
