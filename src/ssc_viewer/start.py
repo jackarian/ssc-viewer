@@ -8,7 +8,6 @@ from datetime import datetime
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
 from threading import Thread
-
 import yaml
 from PySide6 import QtWidgets, QtCore
 from PySide6.QtCore import QTimer
