@@ -1,0 +1,101 @@
+# Allinea gui.yaml delle sale: SSC del totem, credenziali MQTT comuni a tutti i viewer,
+# client_id MQTT uguale al tag della risorsa nel DB di SSC (station_tag nell'inventario).
+#
+#   ansible-playbook configure-viewer.yml -e @~/.config/ssc-viewer/mqtt.yml --limit batteria.padova
+#
+# Il file delle credenziali (mqtt_username, mqtt_password) sta fuori dal repo, che è pubblico.
+# Cambia solo le chiavi elencate in gui_settings, con un backup gui.yaml.bak-<data>, poi riavvia
+# il viewer e controlla il log.
+- name: Configura ssc-viewer
+  hosts: rooms
+  serial: 1
+  gather_facts: false
+  vars:
+    viewer_dir: "/home/{{ ansible_user }}/git/ssc-viewer"
+    gui_config: "/home/{{ ansible_user }}/config/gui.yaml"
+    app_log: "{{ viewer_dir }}/src/ssc_viewer/log/app.log"
+    ssc_host: totem.padova
+    ssc_port: 8080
+    restart_viewer: true
+    gui_settings:
+      server.address: "{{ ssc_host }}"
+      server.port: "{{ ssc_port | int }}"
+      server.websocket: "ws://{{ ssc_host }}:{{ ssc_port }}/ssc/prenostazione-risorse/websocket"
+      mqtt.username: "{{ mqtt_username }}"
+      mqtt.password: "{{ mqtt_password }}"
+      mqtt.client_id: "{{ station_tag }}"
+
+  tasks:
+    - name: Controlla credenziali e tag
+      ansible.builtin.assert:
+        that:
+          - mqtt_username is defined and mqtt_password is defined
+          - station_tag is defined
+        fail_msg: "Servono -e @~/.config/ssc-viewer/mqtt.yml e station_tag nell'inventario"
+        quiet: true
+
+    - name: Legge gui.yaml
+      ansible.builtin.slurp:
+        src: "{{ gui_config }}"
+      register: gui_raw
+
+    - name: Controlla che la sala sia quella del DB
+      vars:
+        gui: "{{ gui_raw.content | b64decode | from_yaml }}"
+      ansible.builtin.assert:
+        that: gui.station.tag | default('') == station_tag
+        fail_msg: "station.tag in gui.yaml è '{{ gui.station.tag | default('') }}', nel DB la sala è {{ station_tag }}"
+        quiet: true
+
+    - name: Aggiorna gui.yaml
+      ansible.builtin.script:
+        cmd: files/set-gui-config.py
+        executable: "{{ viewer_dir }}/env/bin/python3"
+      environment:
+        GUI_FILE: "{{ gui_config }}"
+        GUI_SET: "{{ gui_settings | to_json }}"
+      register: gui_update
+      changed_when: gui_update.stdout is search('^changed:', multiline=true)
+      no_log: true
+
+    - name: Chiavi cambiate
+      ansible.builtin.debug:
+        msg: "{{ gui_update.stdout | trim }}"
+
+    - name: Conta le righe del log prima del riavvio
+      ansible.builtin.shell: if [ -f "$LOG" ]; then wc -l < "$LOG"; else echo 0; fi
+      environment:
+        LOG: "{{ app_log }}"
+      register: log_lines
+      changed_when: false
+      when: gui_update is changed and restart_viewer | bool
+
+    - name: Riavvia il viewer nella sessione grafica
+      ansible.builtin.script: files/restart-viewer.sh
+      when: gui_update is changed and restart_viewer | bool
+
+    - name: Attende i primi collegamenti
+      ansible.builtin.pause:
+        seconds: 15
+      when: gui_update is changed and restart_viewer | bool
+
+    - name: Legge il log dopo il riavvio
+      ansible.builtin.shell: tail -n +"$FROM" "$LOG" | grep -viE 'pass|token|apikey' | tail -n 20
+      environment:
+        LOG: "{{ app_log }}"
+        FROM: "{{ log_lines.stdout | int + 1 }}"
+      register: new_log
+      changed_when: false
+      when: gui_update is changed and restart_viewer | bool
+
+    - name: Log dopo il riavvio
+      ansible.builtin.debug:
+        var: new_log.stdout_lines
+      when: new_log.stdout_lines is defined
+
+    - name: Controlla gli errori di collegamento
+      ansible.builtin.assert:
+        that: new_log.stdout is not search('Not authorized|Response \[(4|5)\d\d\]')
+        fail_msg: "Il viewer non si collega: vedere il log qui sopra (backup di gui.yaml accanto al file)"
+        quiet: true
+      when: new_log.stdout is defined
