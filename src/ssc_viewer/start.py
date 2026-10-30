@@ -40,6 +40,7 @@ APPLICATION_NAME="Reservation Info"
 DEFAULT_WS_URI="ws://totem.padova:8080/ssc/prenostazione-risorse/websocket"
 # MQTT ports with TLS: gui.yaml mqtt.tls overrides it
 MQTT_TLS_PORTS=(8883, 8884)
+SECRET_KEYS=('password', 'api_key')
 
 
 def set_logger(logger: logging.Logger):
@@ -339,7 +340,10 @@ class MyWidget(QtWidgets.QWidget,ConnectionObserver):
         home = str(Path.home())
         with open(r'' + home + '/config/gui.yaml') as file:
             self.config = yaml.load(file, Loader=yaml.FullLoader)
-        self.logger.info(self.config)
+        # never write credentials to the log
+        self.logger.info({section: {k: '***' if k in SECRET_KEYS else v for k, v in values.items()}
+                          if isinstance(values, dict) else values
+                          for section, values in self.config.items()})
 
     def stopTimer(self):
         self.timer.stop()
