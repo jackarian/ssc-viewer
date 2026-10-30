@@ -10,10 +10,12 @@ from pathlib import Path
 from threading import Thread
 import yaml
 from PySide6 import QtWidgets, QtCore
-from PySide6.QtCore import QTimer
+from PySide6.QtCore import QTimer, QObject, Signal
 from PySide6.QtGui import QColor, QPalette
 from PySide6.QtGui import QGuiApplication, QPixmap, Qt
 from PySide6.QtWidgets import QApplication
+
+from ssc_viewer.mqqt.mqtt_client import ClientMqttController
 from ssc_viewer.rest.restclient import SscClient
 from ssc_viewer.stomp_ws.client import Client
 from ssc_viewer.stomp_ws.frame import Frame
@@ -37,6 +39,20 @@ def set_logger(logger: logging.Logger):
     h.setLevel(logging.INFO)
     h.setFormatter(formatter)
     logger.addHandler(h)
+WEBSOCKET="websocket"
+MQTT="mqtt"
+# delay between two attempts to reconnect to the SSC websocket
+RECONNECT_DELAY_MS=5000
+
+class ObserverMessageDispatcher(QObject):
+    """
+    I client STOMP e MQTT notificano dai loro thread: i segnali portano
+    gli eventi nel thread della GUI, l'unico che puo' aggiornare i widget.
+    """
+    opened = Signal(str)
+    closed = Signal(str)
+    error = Signal(str,str)
+    reservation = Signal(object)
 
 class MyWidget(QtWidgets.QWidget,ConnectionObserver):
     # noinspection PyTypeChecker
@@ -135,17 +151,95 @@ class MyWidget(QtWidgets.QWidget,ConnectionObserver):
                                 +':'+str(self.config['server']['port'])
                                 +self.config['server']['resource'],
                                  self.config['plc']['id'])
+        """
+        Instantiate observer dispatcher
+        """
+        self.dispatcher = ObserverMessageDispatcher()
+        self.dispatcher.opened.connect(self._onOpened)
+        self.dispatcher.closed.connect(self._onClosed)
+        self.dispatcher.error.connect(self._onError)
+        self.dispatcher.reservation.connect(self._onReservation)
         self.client = Client(ws_uri, self)
         self.topic = topic
+        self.mqttClient  = ClientMqttController(broker=self.config['mqtt']['broker'],
+                                   topic=self.config['mqtt']['topic'],
+                                   port=self.config['mqtt']['port'],
+                                   username=self.config['mqtt']['username'],
+                                   password=self.config['mqtt']['password'],
+                                   observer=self,
+                                   client_id=self.config['mqtt']['client_id'],
+                                   tls=True)
+        #############################
+        # Timer setup
+
         self.timer = QTimer()
         self.timer.setInterval(1000)
         self.timer.setTimerType(Qt.TimerType.PreciseTimer)
         self.timer.timeout.connect(self.update_counter)
+        ##########################
+        # Websocket reconnect timer
+        self.closing = False
+        self.reconnectTimer = QTimer(self)
+        self.reconnectTimer.setSingleShot(True)
+        self.reconnectTimer.setInterval(RECONNECT_DELAY_MS)
+        self.reconnectTimer.timeout.connect(self._autoReconnect)
+        ##########################
+
         self.connectToBroker()
         self.show()
+        self.mqttClient.startConnection();
 
+    """
+    Slots running in the GUI thread. The connection button reconnects only the
+    websocket: the mqtt client reconnects by itself.
+    """
+    @QtCore.Slot(str)
+    def _onOpened(self, source):
+        if source == WEBSOCKET:
+            self.connectionButton.setVisible(False)
+        self.massageLabel.setText("")
 
+    @QtCore.Slot(str)
+    def _onClosed(self, source):
+        if source == WEBSOCKET:
+            self.connectionButton.setVisible(True)
+            self._scheduleReconnect()
+        self.massageLabel.setText("")
 
+    @QtCore.Slot(str,str)
+    def _onError(self, source, error):
+        self.logger.error(f"{source}: {error}")
+        if source == WEBSOCKET:
+            self.connected = False
+            self.connectionButton.setVisible(True)
+            self.connectionButton.setEnabled(True)
+            self._scheduleReconnect()
+        self.massageLabel.setText("Error connecting to broker.")
+
+    def _scheduleReconnect(self):
+        if not self.closing and not self.reconnectTimer.isActive():
+            self.logger.info(f"websocket: reconnecting in {RECONNECT_DELAY_MS // 1000} s")
+            self.reconnectTimer.start()
+
+    @QtCore.Slot()
+    def _autoReconnect(self):
+        if self.thread is not None and self.thread.is_alive():
+            # previous attempt still waiting for its timeout
+            self._scheduleReconnect()
+            return
+        self.reconnect()
+
+    @QtCore.Slot(object)
+    def _onReservation(self, payload):
+        try:
+            self._setReservation(payload)
+        except Exception as ex:
+            self.logger.error(f"received message {payload}")
+            self.logger.exception(ex)
+
+    """
+    Setting layout 
+    """
     def setLabels(self):
         self.lMainVertical = QtWidgets.QVBoxLayout()
         self.lMainVertical.addWidget(self.titleLabel)
@@ -202,17 +296,14 @@ class MyWidget(QtWidgets.QWidget,ConnectionObserver):
     def onReceiveMessage(self, message:Frame):
         self.logger.debug(message.body)
         try:
-            payload = json.loads(message.body)
-            self._setReservation(payload)
-
-
+            self.dispatcher.reservation.emit(json.loads(message.body))
         except json.decoder.JSONDecodeError as ex:
-            self.logger.error(f"received message {message}: {message}")
+            self.logger.error(f"received message {message.body}")
             self.logger.error(ex)
-            self.massageLabel.setText(f"received message {message}: {message}")
 
     def _setReservation(self,payload):
-        if payload['resourceTag'] ==self.tag:
+        self.logger.debug(payload)
+        if payload.get('resourceTag') ==self.tag:
             self.progressBar.setVisible(False)
             self.start = datetime.fromisoformat(str(payload['startTime']))
             self.end   = datetime.fromisoformat(str(payload['endTime']))
@@ -250,8 +341,7 @@ class MyWidget(QtWidgets.QWidget,ConnectionObserver):
     def onConnected(self, frame):
         self.connected = True
         self.client.subscribe(self.topic, callback=self.onReceiveMessage)
-        self.connectionButton.setVisible(False)
-        self.massageLabel.setText("")
+        self.dispatcher.opened.emit(WEBSOCKET)
         self.sscCli.currentReservation(self.tag,callback=self.manageResponse)
 
     def manageResponse(self,response:Response):
@@ -259,23 +349,43 @@ class MyWidget(QtWidgets.QWidget,ConnectionObserver):
         if response.status_code == 200:
             body = response.json()
             if body['result'] is not None:
-                self._setReservation(body['result'])
+                self.dispatcher.reservation.emit(body['result'])
+
+    """
+    ConnectionObserver callbacks: called from the client threads, they only
+    forward the event to the GUI thread.
+    """
+    @staticmethod
+    def _source(observable):
+        return MQTT if isinstance(observable, ClientMqttController) else WEBSOCKET
+
+    def _isStale(self, observable):
+        # late events from a websocket client already replaced by reconnect()
+        client = self.client
+        return (self._source(observable) == WEBSOCKET and client is not None
+                and observable is not client and observable is not client.ws)
 
     def notifyOnClose(self, observable=None, message=None, exception=None):
-        self.connectionButton.setVisible(True)
-        self.massageLabel.setText("")
+        if not self._isStale(observable):
+            self.dispatcher.closed.emit(self._source(observable))
+
     def notifyOnOpen(self, observable=None, message=None, exception=None):
-        self.connectionButton.setVisible(False)
+        if not self._isStale(observable):
+            self.dispatcher.opened.emit(self._source(observable))
 
     def notifyOnMessage(self, observable=None, message=None, exception=None):
-        pass
+        self.dispatcher.reservation.emit(message)
 
     def notifyOnError(self, observable=None, message=None, exception=None):
-        self.logger.error(exception)
-        self.connected = False
-        self.massageLabel.setText("Error connecting to broker.")
-        self.connectionButton.setVisible(True)
-        self.connectionButton.setEnabled(True)
+        if self._isStale(observable):
+            return
+        self.dispatcher.error.emit(self._source(observable), str(exception or message))
+
+    def closeEvent(self, event) -> None:
+        self.logger.log(level=logging.INFO, msg=event)
+        self.closing = True
+        self.reconnectTimer.stop()
+        self.mqttClient.closeConnection()
 
 
 if __name__ == "__main__":
@@ -285,7 +395,7 @@ if __name__ == "__main__":
         palette.setColor(QPalette.ColorRole.Window, QColor(255,255,255))
         app.setApplicationName(APPLICATION_NAME)
         app.setPalette(palette)
-        widget = MyWidget(app,"ws://totem.padova:8080/ssc/prenostazione-risorse/websocket",
+        widget = MyWidget(app,"ws://service.local:8080/ssc/prenostazione-risorse/websocket",
                            "/scheduler",False)
         sys.exit(app.exec())
     except Exception as ex:

@@ -1,3 +1,6 @@
+from PySide6.QtCore import Signal
+
+
 class ConnectionObserver:
 
     def notifyOnClose(self, observable=None, message=None, exception=None):
@@ -16,3 +19,4 @@ class Displayer:
 
     def displayMessage(self,title,message,message_type):
         pass
+

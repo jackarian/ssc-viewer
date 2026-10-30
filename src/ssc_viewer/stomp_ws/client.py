@@ -37,7 +37,9 @@ class Client:
         self.observers.append(observer)
 
     def _connect(self, timeout=1000):
-        thread = Thread(target=self.ws.run_forever,kwargs={'reconnect':timeout})
+        # no automatic reconnect here: a new socket would need a new STOMP CONNECT
+        # and new subscriptions, the observer reconnects with a new Client
+        thread = Thread(target=self.ws.run_forever)
         thread.daemon = True
         thread.start()
 
@@ -46,6 +48,7 @@ class Client:
             time.sleep(.25)
             total_ms += 250
             if 0 < timeout < total_ms:
+                self.ws.close()
                 raise TimeoutError(f"Connection to {self.url} timed out")
 
     def _on_open(self, ws):
@@ -160,6 +163,7 @@ class Client:
 
     def _clean_up(self):
         self.connected = False
+        self.opened = False
 
     def send(self, destination, headers=None, body=None):
         if headers is None:
