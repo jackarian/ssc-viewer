@@ -26,7 +26,8 @@ from interfaces.observer import ConnectionObserver
 
 basedir=os.path.dirname(__file__)
 decimal.getcontext().rounding = decimal.ROUND_HALF_EVEN
-SALA_LIBERA = "Sala libera"
+# the resource name is already shown above the state: "Sala libera" repeated it (and Piano is not a sala)
+SALA_LIBERA = "Disponibile"
 SESSIONE_IN_CORSO = "Sessione in corso"
 # last minutes of the session shown in orange
 WARNING_SECONDS = 5 * 60
