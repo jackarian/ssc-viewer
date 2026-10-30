@@ -12,7 +12,7 @@
   vars:
     viewer_repo: https://github.com/jackarian/ssc-viewer.git
     viewer_dir: "/home/{{ ansible_user }}/git/ssc-viewer"
-    log_dir: "{{ viewer_dir }}/src/ssc_viewer/log"
+    app_log: src/ssc_viewer/log/app.log
     gui_config: "/home/{{ ansible_user }}/config/gui.yaml"
     restart_viewer: true
 
@@ -70,20 +70,22 @@
 
     - name: Aggiorna
       block:
-        # Le versioni precedenti a v0.2.0 tracciano log/app.log, scritto a runtime:
+        # Alcune versioni tracciano log/app.log, che il viewer scrive a runtime:
         # va messo da parte, altrimenti git rifiuta il checkout.
         - name: Mette da parte il log
           ansible.builtin.shell: |
-            if git ls-files --error-unmatch app.log >/dev/null 2>&1; then
-                if ! git diff --quiet -- app.log; then
-                    cp -p app.log app.log.pre-update
-                    git checkout -- app.log
+            if git ls-files --error-unmatch "$LOG" >/dev/null 2>&1; then
+                if ! git diff --quiet -- "$LOG"; then
+                    cp -p "$LOG" "$LOG.pre-update"
+                    git checkout -- "$LOG"
                 fi
-            elif [ -e app.log ]; then
-                mv app.log app.log.pre-update
+            elif [ -e "$LOG" ]; then
+                mv "$LOG" "$LOG.pre-update"
             fi
           args:
-            chdir: "{{ log_dir }}"
+            chdir: "{{ viewer_dir }}"
+          environment:
+            LOG: "{{ app_log }}"
 
         - name: Checkout del tag
           ansible.builtin.command: git checkout --detach refs/tags/{{ viewer_version }}
@@ -92,11 +94,13 @@
 
         - name: Rimette il log se la nuova versione non lo traccia
           ansible.builtin.shell: |
-            if [ -e app.log.pre-update ] && ! git ls-files --error-unmatch app.log >/dev/null 2>&1; then
-                mv -f app.log.pre-update app.log
+            if [ -e "$LOG.pre-update" ] && ! git ls-files --error-unmatch "$LOG" >/dev/null 2>&1; then
+                mv -f "$LOG.pre-update" "$LOG"
             fi
           args:
-            chdir: "{{ log_dir }}"
+            chdir: "{{ viewer_dir }}"
+          environment:
+            LOG: "{{ app_log }}"
 
         - name: Verifica dipendenze e import con il venv della sala
           ansible.builtin.command: >-

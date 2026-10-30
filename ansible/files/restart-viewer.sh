@@ -5,7 +5,8 @@
 set -euo pipefail
 
 DESKTOP="$HOME/.config/autostart/smartstation.desktop"
-PATTERN="ssc_viewer/start.py"
+# Solo il processo python del viewer, non shell o comandi che citano il percorso
+PATTERN="^[^ ]*python[0-9.]* [^ ]*ssc_viewer/start\.py"
 uid=$(id -u)
 
 cmd=$(sed -n 's/^Exec=//p' "$DESKTOP" | head -n1)
