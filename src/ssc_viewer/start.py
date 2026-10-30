@@ -36,6 +36,10 @@ MESI = ("gennaio", "febbraio", "marzo", "aprile", "maggio", "giugno", "luglio", 
 CONNECT="Connect"
 DISCONNECT="Disconnect"
 APPLICATION_NAME="Reservation Info"
+# SSC of the location, on the totem: gui.yaml server.websocket overrides it
+DEFAULT_WS_URI="ws://totem.padova:8080/ssc/prenostazione-risorse/websocket"
+# MQTT ports with TLS: gui.yaml mqtt.tls overrides it
+MQTT_TLS_PORTS=(8883, 8884)
 
 
 def set_logger(logger: logging.Logger):
@@ -78,6 +82,12 @@ class MyWidget(QtWidgets.QWidget,ConnectionObserver):
         self.labelWidth= int(geometry.width() / 2)
         self._configureFromFile()
         self.tag=self.config['station']['tag']
+        # the room configs installed so far have no websocket, proto, resource, fullscreen keys
+        server = self.config['server']
+        if ws_uri is None:
+            ws_uri = server.get('websocket', DEFAULT_WS_URI)
+        if fullscreen is None:
+            fullscreen = self.config['station'].get('fullscreen', True)
         self.thread:Thread= None
 
 
@@ -136,10 +146,10 @@ class MyWidget(QtWidgets.QWidget,ConnectionObserver):
         self.end = None
         if fullscreen:
             self.showFullScreen()
-        self.sscCli = SscClient(self.config['server']['proto']+'://'
-            +self.config['server']['address']
-                                +':'+str(self.config['server']['port'])
-                                +self.config['server']['resource'],
+        self.sscCli = SscClient(server.get('proto', 'http')+'://'
+                                +server['address']
+                                +':'+str(server['port'])
+                                +server.get('resource', '/ssc'),
                                  self.config['plc']['id'])
         """
         Instantiate observer dispatcher
@@ -151,14 +161,18 @@ class MyWidget(QtWidgets.QWidget,ConnectionObserver):
         self.dispatcher.reservation.connect(self._onReservation)
         self.client = Client(ws_uri, self)
         self.topic = topic
-        self.mqttClient  = ClientMqttController(broker=self.config['mqtt']['broker'],
-                                   topic=self.config['mqtt']['topic'],
-                                   port=self.config['mqtt']['port'],
-                                   username=self.config['mqtt']['username'],
-                                   password=self.config['mqtt']['password'],
+        # MQTT is optional: without the mqtt section only the websocket is used
+        mqtt = self.config.get('mqtt')
+        self.mqttClient = None
+        if mqtt:
+            self.mqttClient  = ClientMqttController(broker=mqtt['broker'],
+                                   topic=mqtt['topic'],
+                                   port=mqtt['port'],
+                                   username=mqtt['username'],
+                                   password=mqtt['password'],
                                    observer=self,
-                                   client_id=self.config['mqtt']['client_id'],
-                                   tls=True)
+                                   client_id=mqtt['client_id'],
+                                   tls=mqtt.get('tls', mqtt['port'] in MQTT_TLS_PORTS))
         #############################
         # Timer setup
 
@@ -179,7 +193,8 @@ class MyWidget(QtWidgets.QWidget,ConnectionObserver):
 
         self.connectToBroker()
         self.show()
-        self.mqttClient.startConnection();
+        if self.mqttClient is not None:
+            self.mqttClient.startConnection()
 
     """
     Slots running in the GUI thread. The connection button reconnects only the
@@ -421,7 +436,8 @@ class MyWidget(QtWidgets.QWidget,ConnectionObserver):
         self.logger.log(level=logging.INFO, msg=event)
         self.closing = True
         self.reconnectTimer.stop()
-        self.mqttClient.closeConnection()
+        if self.mqttClient is not None:
+            self.mqttClient.closeConnection()
 
 
 if __name__ == "__main__":
@@ -431,8 +447,8 @@ if __name__ == "__main__":
         palette.setColor(QPalette.ColorRole.Window, QColor(255,255,255))
         app.setApplicationName(APPLICATION_NAME)
         app.setPalette(palette)
-        widget = MyWidget(app,"ws://service.local:8080/ssc/prenostazione-risorse/websocket",
-                           "/scheduler",False)
+        # websocket and fullscreen from ~/config/gui.yaml
+        widget = MyWidget(app, None, "/scheduler", None)
         sys.exit(app.exec())
     except Exception as ex:
         print(ex)

@@ -1,1 +1,5 @@
 /venv/
+/env/
+__pycache__/
+# written at runtime: on the room machines it would block git checkout
+src/ssc_viewer/log/*.log*
