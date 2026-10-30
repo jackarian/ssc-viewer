@@ -7,6 +7,10 @@ import websocket
 from .frame import Frame
 
 VERSIONS = '1.0,1.1'
+# websocket pings: a connection that died without a close (e.g. SSC restarted in a new container)
+# is detected within PING_INTERVAL_S + PING_TIMEOUT_S and closed, so the observer reconnects
+PING_INTERVAL_S = 30
+PING_TIMEOUT_S = 10
 
 
 class Client:
@@ -39,7 +43,8 @@ class Client:
     def _connect(self, timeout=1000):
         # no automatic reconnect here: a new socket would need a new STOMP CONNECT
         # and new subscriptions, the observer reconnects with a new Client
-        thread = Thread(target=self.ws.run_forever)
+        thread = Thread(target=self.ws.run_forever,
+                        kwargs={'ping_interval': PING_INTERVAL_S, 'ping_timeout': PING_TIMEOUT_S})
         thread.daemon = True
         thread.start()
 

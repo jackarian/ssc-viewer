@@ -2,8 +2,9 @@
 #
 #   ansible-playbook update-viewer.yml -e viewer_version=v0.2.0 --limit batteria.padova
 #
-# Il codice è installato in modalità editable nel venv env/, quindi basta il checkout del tag:
-# nessun pip install. Se la verifica degli import fallisce torna al commit precedente.
+# Il codice è installato in modalità editable nel venv env/, quindi basta il checkout del tag;
+# pip serve solo per portare websocket-client alla versione minima. Se la verifica degli import
+# fallisce torna al commit precedente.
 # Con -e restart_viewer=false aggiorna il codice senza riavviare il viewer.
 - name: Aggiorna ssc-viewer
   hosts: rooms
@@ -15,6 +16,7 @@
     app_log: src/ssc_viewer/log/app.log
     gui_config: "/home/{{ ansible_user }}/config/gui.yaml"
     restart_viewer: true
+    websocket_client_min: "1.9.2"
 
   tasks:
     - name: Controlla la versione richiesta
@@ -101,6 +103,22 @@
             chdir: "{{ viewer_dir }}"
           environment:
             LOG: "{{ app_log }}"
+
+        # Le versioni precedenti di websocket-client mandano il ping ma non chiudono la connessione
+        # se il pong non arriva: un SSC riavviato non verrebbe mai rilevato.
+        - name: Porta websocket-client almeno alla {{ websocket_client_min }}
+          ansible.builtin.shell: |
+            if env/bin/python3 -c "import sys, websocket; v = tuple(int(x) for x in websocket.__version__.split('.')[:3]); sys.exit(v < tuple(int(x) for x in sys.argv[1].split('.')))" "$MIN"; then
+                echo "websocket-client già aggiornato"
+            else
+                env/bin/pip install --quiet --disable-pip-version-check "websocket-client>=$MIN,<2" && echo "websocket-client aggiornato"
+            fi
+          args:
+            chdir: "{{ viewer_dir }}"
+          environment:
+            MIN: "{{ websocket_client_min }}"
+          register: websocket_client
+          changed_when: websocket_client.stdout is search('websocket-client aggiornato')
 
         - name: Verifica dipendenze e import con il venv della sala
           ansible.builtin.command: >-
