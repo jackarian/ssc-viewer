@@ -19,14 +19,20 @@ from ssc_viewer.mqqt.mqtt_client import ClientMqttController
 from ssc_viewer.rest.restclient import SscClient
 from ssc_viewer.stomp_ws.client import Client
 from ssc_viewer.stomp_ws.frame import Frame
-from ssc_viewer.stylesheet.interface_styles import ROM_NAME_STYLE, INFO_LABEL_STYLE, PROGRESS_LABEL_STYLE, \
-    CONNECTION_BUTTON_STYLE
+from ssc_viewer.stylesheet.interface_styles import ROM_NAME_STYLE, CONNECTION_BUTTON_STYLE, CLOCK_STYLE, \
+    SECONDARY_STYLE, RED, GREEN, ORANGE, status_style, progress_style
 
 from interfaces.observer import ConnectionObserver
 
 basedir=os.path.dirname(__file__)
 decimal.getcontext().rounding = decimal.ROUND_HALF_EVEN
-NESSUNA_SESSIONE_IN_CORSO = "Nessuna sessione in corso"
+SALA_LIBERA = "Sala libera"
+SESSIONE_IN_CORSO = "Sessione in corso"
+# last minutes of the session shown in orange
+WARNING_SECONDS = 5 * 60
+GIORNI = ("lun", "mar", "mer", "gio", "ven", "sab", "dom")
+MESI = ("gennaio", "febbraio", "marzo", "aprile", "maggio", "giugno", "luglio", "agosto", "settembre",
+        "ottobre", "novembre", "dicembre")
 CONNECT="Connect"
 DISCONNECT="Disconnect"
 APPLICATION_NAME="Reservation Info"
@@ -67,52 +73,47 @@ class MyWidget(QtWidgets.QWidget,ConnectionObserver):
 
         self.lCentraColumn:QtWidgets = None
         self.lBottomRow:QtWidgets = None
-        self.lHExternalRows:QtWidgets = None
         self.lMainVertical:QtWidgets = None
         geometry = QGuiApplication.primaryScreen().geometry()
         self.labelWidth= int(geometry.width() / 2)
         self._configureFromFile()
         self.tag=self.config['station']['tag']
         self.thread:Thread= None
-        self.secondi = 0
 
 
         self.titleLabel = QtWidgets.QLabel('')
         self.titleLabel.setPixmap(QPixmap(os.path.join(basedir,'./img/padovamusic.png')))
         self.titleLabel.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
         self.titleLabel.setFixedHeight(103)
+        """
+        Clock: current time and date, top right
+        """
+        self.clockLabel = QtWidgets.QLabel('')
+        self.clockLabel.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignBottom)
+        self.clockLabel.setStyleSheet(CLOCK_STYLE)
+        self.dateLabel = QtWidgets.QLabel('')
+        self.dateLabel.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignTop)
+        self.dateLabel.setStyleSheet(SECONDARY_STYLE)
         self.roomName = QtWidgets.QLabel(self.config['station']['name'])
         self.roomName.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
-        self.roomName.setFixedHeight(103)
         self.roomName.setStyleSheet(ROM_NAME_STYLE)
         """
-        Labels to show reservation time info 
+        Session status, remaining time and slot
         """
-        self.infoLabel = QtWidgets.QLabel('Info prenotazione:')
-        self.infoLabel.setStyleSheet(INFO_LABEL_STYLE)
-        self.infoLabel.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
-        self.infoLabel.setFixedWidth(self.labelWidth)
-
-        #self.infoStartPrenotazione = QtWidgets.QLabel('')
-        #self.infoStartPrenotazione.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
-        #self.infoStartPrenotazione.setFixedWidth(self.labelWidth)
-        #self.infoStartPrenotazione.setStyleSheet("QLabel {background-color: #fff; border-top: 1px solid black; border-radius: 10px; font-size: 20px; font-weight: bold;color:#e31100;}")
-
-        self.infoEndReservation = QtWidgets.QLabel('')
-        self.infoEndReservation.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
-        self.infoEndReservation.setFixedWidth(self.labelWidth)
-        self.infoEndReservation.setStyleSheet("QLabel {background-color: #fff; border-bottom: 1px solid black; border-radius: 10px; font-size: 20px; font-weight: bold;color:#e31100;}")
-        """
-        Labels to show time info
-        """
+        self.statusLabel = QtWidgets.QLabel('')
+        self.statusLabel.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
         self.timeLabel = QtWidgets.QLabel('')
         self.timeLabel.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
-        self.timeLabel.setStyleSheet("QLabel {background-color: #fff; border: 1px solid black; border-radius: 10px; font-size: 20px; font-weight: bold; color:#e31100;}")
-        self.timeLabel.setFixedWidth(self.labelWidth)
+        self.intervalLabel = QtWidgets.QLabel('')
+        self.intervalLabel.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
+        self.intervalLabel.setStyleSheet(SECONDARY_STYLE)
         self.progressBar = QtWidgets.QProgressBar()
-        self.progressBar.setStyleSheet(PROGRESS_LABEL_STYLE)
+        self.progressBar.setRange(0, 1000)
+        self.progressBar.setTextVisible(False)
         self.progressBar.setFixedWidth(self.labelWidth)
         self.progressBar.setVisible(False)
+        # colour of the current state, to restyle only when it changes
+        self.stateColor = None
         """
         """
         self.massageLabel = QtWidgets.QLabel('')
@@ -126,17 +127,6 @@ class MyWidget(QtWidgets.QWidget,ConnectionObserver):
         self.connected = False
 
         self.setLabels()
-
-        """
-        Layout for time info
-        """
-        self.lCentraColumn.addWidget(self.progressBar)
-        self.lCentraColumn.addWidget(self.timeLabel)
-        #self.lCentraColumn.addWidget(self.infoLabel)
-        #self.lCentraColumn.addWidget(self.infoStartPrenotazione)
-        self.lCentraColumn.addWidget(self.infoEndReservation)
-        """
-        """
 
         self.setLayout(self.lMainVertical)
 
@@ -176,6 +166,8 @@ class MyWidget(QtWidgets.QWidget,ConnectionObserver):
         self.timer.setInterval(1000)
         self.timer.setTimerType(Qt.TimerType.PreciseTimer)
         self.timer.timeout.connect(self.update_counter)
+        self.timer.start()
+        self.update_counter()
         ##########################
         # Websocket reconnect timer
         self.closing = False
@@ -242,42 +234,90 @@ class MyWidget(QtWidgets.QWidget,ConnectionObserver):
     """
     def setLabels(self):
         self.lMainVertical = QtWidgets.QVBoxLayout()
-        self.lMainVertical.addWidget(self.titleLabel)
+        self.lMainVertical.setContentsMargins(24, 16, 24, 16)
+        # logo centred and clock on the right: three columns of the same width
+        lTop = QtWidgets.QGridLayout()
+        lClock = QtWidgets.QVBoxLayout()
+        lClock.setSpacing(0)
+        lClock.addWidget(self.clockLabel)
+        lClock.addWidget(self.dateLabel)
+        lTop.addWidget(self.titleLabel, 0, 1)
+        lTop.addLayout(lClock, 0, 2)
+        for column in range(3):
+            lTop.setColumnStretch(column, 1)
+        self.lMainVertical.addLayout(lTop)
         self.lMainVertical.addWidget(self.roomName)
-        self.lHExternalRows = QtWidgets.QHBoxLayout()
+        self.lCentraColumn = QtWidgets.QVBoxLayout()
+        self.lCentraColumn.addStretch(1)
+        self.lCentraColumn.addWidget(self.statusLabel)
+        self.lCentraColumn.addWidget(self.timeLabel)
+        self.lCentraColumn.addWidget(self.intervalLabel)
+        self.lCentraColumn.addWidget(self.progressBar, 0, Qt.AlignmentFlag.AlignHCenter)
+        self.lCentraColumn.addStretch(2)
+        self.lMainVertical.addLayout(self.lCentraColumn, 1)
         self.lBottomRow = QtWidgets.QHBoxLayout()
         self.lBottomRow.setSpacing(0)
         self.lBottomRow.setContentsMargins(0, 0, 0, 0)
-        self.lMainVertical.addLayout(self.lHExternalRows)
         self.lMainVertical.addLayout(self.lBottomRow)
-        self.lCentraColumn = QtWidgets.QVBoxLayout()
-        self.lHExternalRows.addLayout(self.lCentraColumn)
         self.lBottomRow.addWidget(self.connectionButton)
         self.lBottomRow.addWidget(self.massageLabel)
+
+    def resizeEvent(self, event) -> None:
+        super().resizeEvent(event)
+        # font sizes follow the window height: readable from the back of the room
+        height = max(self.height(), 400)
+        for label, ratio, bold in ((self.clockLabel, 0.08, True), (self.dateLabel, 0.03, False),
+                                   (self.roomName, 0.065, True), (self.statusLabel, 0.06, True),
+                                   (self.timeLabel, 0.18, True), (self.intervalLabel, 0.045, False)):
+            font = label.font()
+            font.setPixelSize(int(height * ratio))
+            font.setBold(bold)
+            label.setFont(font)
+        self.progressBar.setFixedHeight(int(height * 0.025))
 
     @QtCore.Slot()
     def update_counter(self):
        try:
-            if self.secondi <= 0 :
-                self.progressBar.setVisible(False)
-                self.timeLabel.setText(NESSUNA_SESSIONE_IN_CORSO)
-                self.infoEndReservation.setText('')
+            now = datetime.now()
+            self.clockLabel.setText(now.strftime("%H:%M"))
+            self.dateLabel.setText(f"{GIORNI[now.weekday()]} {now.day} {MESI[now.month - 1]}")
+
+            if self.end is not None and now >= self.end:
+                self.start = None
+                self.end = None
+
+            if self.start is not None and self.start <= now:
+                # computed from the end of the slot at every tick: no drift if the timer is late
+                remaining = int((self.end - now).total_seconds())
+                total = (self.end - self.start).total_seconds()
+                ore, resto = divmod(remaining, 3600)
+                minuti, secondi = divmod(resto, 60)
+                self._showState(SESSIONE_IN_CORSO, f"{ore:02d}:{minuti:02d}:{secondi:02d}",
+                                f"dalle {self.start:%H:%M} alle {self.end:%H:%M}",
+                                ORANGE if remaining <= WARNING_SECONDS else RED,
+                                int(1000 * remaining / total) if total > 0 else 0)
+            elif self.start is not None:
+                self._showState(SALA_LIBERA, "",
+                                f"prossima sessione dalle {self.start:%H:%M} alle {self.end:%H:%M}", GREEN, None)
             else:
-                if not self.progressBar.isVisible():
-                    self.progressBar.setVisible(True)
-                    self.progressBar.setMinimum(0)
-                    self.progressBar.setMaximum(self.secondi)
-
-                ore, mi = divmod(float(self.secondi), 3600)
-                m, s = divmod(float(mi), 60)
-                self.timeLabel.setText("La sessione finira'  tra : " + str(int(ore))+":"+str(int(m))+":"+str(int(s)))
-                self.secondi -= 1
-                self.progressBar.setValue(self.secondi)
-
-            ##self.reconnect()
+                self._showState(SALA_LIBERA, "", "", GREEN, None)
 
        except Exception as ex:
            self.logger.exception(ex)
+
+    def _showState(self, status, remaining, interval, color, progress):
+        self.statusLabel.setText(status)
+        self.timeLabel.setText(remaining)
+        self.timeLabel.setVisible(bool(remaining))
+        self.intervalLabel.setText(interval)
+        self.progressBar.setVisible(progress is not None)
+        if progress is not None:
+            self.progressBar.setValue(progress)
+        if color != self.stateColor:
+            self.stateColor = color
+            self.statusLabel.setStyleSheet(status_style(color))
+            self.timeLabel.setStyleSheet(status_style(color))
+            self.progressBar.setStyleSheet(progress_style(color))
 
 
     def _configureFromFile(self):
@@ -304,13 +344,9 @@ class MyWidget(QtWidgets.QWidget,ConnectionObserver):
     def _setReservation(self,payload):
         self.logger.debug(payload)
         if payload.get('resourceTag') ==self.tag:
-            self.progressBar.setVisible(False)
             self.start = datetime.fromisoformat(str(payload['startTime']))
             self.end   = datetime.fromisoformat(str(payload['endTime']))
-
-            delta =  (self.end - datetime.now())
-            self.secondi = delta.total_seconds()
-            self.infoEndReservation.setText("Fine sessione: "+self.end.strftime("%H:%M"))
+            self.update_counter()
 
     def connectToBroker(self):
         if not self.client.connected:
