@@ -1,0 +1,129 @@
+# Aggiorna ssc-viewer sulle Raspberry delle sale a un tag del repository.
+#
+#   ansible-playbook update-viewer.yml -e viewer_version=v0.2.0 --limit batteria.padova
+#
+# Il codice è installato in modalità editable nel venv env/, quindi basta il checkout del tag:
+# nessun pip install. Se la verifica degli import fallisce torna al commit precedente.
+# Con -e restart_viewer=false aggiorna il codice senza riavviare il viewer.
+- name: Aggiorna ssc-viewer
+  hosts: rooms
+  serial: 1
+  gather_facts: false
+  vars:
+    viewer_repo: https://github.com/jackarian/ssc-viewer.git
+    viewer_dir: "/home/{{ ansible_user }}/git/ssc-viewer"
+    log_dir: "{{ viewer_dir }}/src/ssc_viewer/log"
+    gui_config: "/home/{{ ansible_user }}/config/gui.yaml"
+    restart_viewer: true
+
+  tasks:
+    - name: Controlla la versione richiesta
+      ansible.builtin.assert:
+        that: viewer_version | default('') | length > 0
+        fail_msg: "Indicare la versione: -e viewer_version=vX.Y.Z"
+        quiet: true
+
+    - name: Legge gui.yaml
+      ansible.builtin.slurp:
+        src: "{{ gui_config }}"
+      register: gui_raw
+
+    - name: Controlla le chiavi obbligatorie di gui.yaml
+      vars:
+        gui: "{{ gui_raw.content | b64decode | from_yaml }}"
+      ansible.builtin.assert:
+        that:
+          - gui.station.tag is defined
+          - gui.station.name is defined
+          - gui.server.address is defined
+          - gui.server.port is defined
+        fail_msg: "{{ gui_config }}: mancano station.tag, station.name, server.address o server.port"
+        quiet: true
+
+    - name: Legge il commit installato
+      ansible.builtin.command: git rev-parse HEAD
+      args:
+        chdir: "{{ viewer_dir }}"
+      register: previous
+      changed_when: false
+
+    - name: Cerca modifiche locali ai file tracciati
+      ansible.builtin.command: git status --porcelain --untracked-files=no
+      args:
+        chdir: "{{ viewer_dir }}"
+      register: dirty
+      changed_when: false
+
+    - name: Rifiuta l'aggiornamento se ci sono modifiche locali (il log escluso)
+      ansible.builtin.assert:
+        that: dirty.stdout_lines | reject('search', 'src/ssc_viewer/log/app\.log$') | list | length == 0
+        fail_msg: "Modifiche locali in {{ viewer_dir }}: {{ dirty.stdout_lines }}"
+        quiet: true
+
+    - name: Scarica il tag (HTTPS, senza chiavi GitHub sulla Raspberry)
+      ansible.builtin.command: >-
+        git fetch --force {{ viewer_repo }}
+        refs/tags/{{ viewer_version }}:refs/tags/{{ viewer_version }}
+      args:
+        chdir: "{{ viewer_dir }}"
+      changed_when: false
+
+    - name: Aggiorna
+      block:
+        # Le versioni precedenti a v0.2.0 tracciano log/app.log, scritto a runtime:
+        # va messo da parte, altrimenti git rifiuta il checkout.
+        - name: Mette da parte il log
+          ansible.builtin.shell: |
+            if git ls-files --error-unmatch app.log >/dev/null 2>&1; then
+                if ! git diff --quiet -- app.log; then
+                    cp -p app.log app.log.pre-update
+                    git checkout -- app.log
+                fi
+            elif [ -e app.log ]; then
+                mv app.log app.log.pre-update
+            fi
+          args:
+            chdir: "{{ log_dir }}"
+
+        - name: Checkout del tag
+          ansible.builtin.command: git checkout --detach refs/tags/{{ viewer_version }}
+          args:
+            chdir: "{{ viewer_dir }}"
+
+        - name: Rimette il log se la nuova versione non lo traccia
+          ansible.builtin.shell: |
+            if [ -e app.log.pre-update ] && ! git ls-files --error-unmatch app.log >/dev/null 2>&1; then
+                mv -f app.log.pre-update app.log
+            fi
+          args:
+            chdir: "{{ log_dir }}"
+
+        - name: Verifica dipendenze e import con il venv della sala
+          ansible.builtin.command: >-
+            env/bin/python3 -c "import sys; sys.path[:0] = ['src', 'src/ssc_viewer'];
+            from paho.mqtt.client import CallbackAPIVersion; import ssc_viewer.start"
+          args:
+            chdir: "{{ viewer_dir }}"
+          environment:
+            QT_QPA_PLATFORM: offscreen
+          changed_when: false
+
+      rescue:
+        - name: Torna al commit precedente
+          ansible.builtin.command: git checkout --force --detach {{ previous.stdout }}
+          args:
+            chdir: "{{ viewer_dir }}"
+
+        - name: Segnala il fallimento
+          ansible.builtin.fail:
+            msg: "Aggiornamento a {{ viewer_version }} fallito, rimesso {{ previous.stdout[:7] }}. Viewer non riavviato."
+
+    - name: Riavvia il viewer nella sessione grafica
+      ansible.builtin.script: files/restart-viewer.sh
+      when: restart_viewer | bool
+      register: restart
+      changed_when: true
+
+    - name: Esito
+      ansible.builtin.debug:
+        msg: "{{ previous.stdout[:7] }} → {{ viewer_version }}. {{ restart.stdout | default('Viewer non riavviato.') | trim }}"
